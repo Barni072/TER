@@ -1,0 +1,213 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <gmp.h>
+
+// On représente les nombres rationnels par des quotients d'entiers (premiers entre eux, et avec le dénominateur non nul)
+// On a besoin de ça, puisque la représentation flottante n'est pas exacte
+// On pourrait juste utilser les rationnels mpq_t de GNU MP, mais programmer ceci constitue un bon moyen de prendre en main les entiers de GNU MP
+struct s_rationnel{
+	mpz_t p;	// Numérateur
+	mpz_t q;	// Dénominateur (strictement positif)
+	// p et q doivent être premiers entre eux
+};
+typedef struct s_rationnel* rationnel;
+
+// Initialisation et destruction
+void rat_init(rationnel* x){
+	*x = malloc(sizeof(struct s_rationnel));	// x est ici un pointeur vers un pointeur vers un struct s_rationnel, c'est potentiellement douteux
+	// Valeurs par défaut choisies un peu au pif, juste pour éviter que le dénominateur soit nul
+	mpz_init_set_ui((*x)->p,0);
+	mpz_init_set_ui((*x)->q,1);
+	return;
+}
+void rat_clear(rationnel* x){
+	mpz_clear((*x)->p);
+	mpz_clear((*x)->q);
+	free(*x);	// Même remarque que pour rat_init, x est un pointeur vers un pointeur
+	return;
+}
+
+// "Normalise" le rationnel x de sorte que son numérateur et son dénominateur soient premiers entre eux
+void rat_norm(rationnel x){
+	mpz_t pgcd;
+	mpz_init(pgcd);
+	mpz_gcd(pgcd,x->p,x->q);
+	mpz_divexact(x->p,x->p,pgcd);
+	mpz_divexact(x->q,x->q,pgcd);
+	return;
+}
+
+// Affectation du numérateur et du dénominateur
+void rat_set_p(rationnel x,mpz_t p){
+	mpz_set(x->p,p);
+	rat_norm(x);
+	return;
+}
+void rat_set_q(rationnel x,mpz_t q){
+	mpz_set(x->q,q);
+	rat_norm(x);
+	return;
+}
+void rat_set_pq(rationnel x,mpz_t p,mpz_t q){
+	mpz_set(x->p,p);
+	mpz_set(x->q,q);
+	rat_norm(x);
+	return;
+}
+
+// Affiche le numérateur, le dénominateur et une approximation flottante du rationnel x
+void rat_aff(rationnel x){
+	long int p = mpz_get_si(x->p);
+	unsigned long int q = mpz_get_ui(x->q);
+	double esti = ((double)p/(double)q);
+	fprintf(stdout,"Numérateur : %d\nDénominateur : %d\nApproximation : %.4f\n",p,q,esti);
+	return;
+}
+
+// Opérations de base sur les rationnels (somme, produit, opposé, inverse, produit avec un entier, division par un entier) :
+void rat_add(rationnel res,rationnel x,rationnel y){
+	mpz_mul(res->p,x->p,y->q);
+	mpz_addmul(res->p,y->p,x->q);
+	mpz_mul(res->q,x->q,y->q);
+	rat_norm(res);
+	return;
+}
+void rat_mul(rationnel res,rationnel x,rationnel y){
+	mpz_mul(res->p,x->p,y->p);
+	mpz_mul(res->q,x->q,y->q);
+	rat_norm(res);
+	return;
+}
+void rat_neg(rationnel res,rationnel x){
+	mpz_neg(res->p,x->p);
+	mpz_set(res->q,x->q);
+	// Pas de normalisation à faire ici
+	return;
+}
+void rat_inv(rationnel res,rationnel x){
+	int cmp = mpz_cmp_si(x->p,0);	// Le signe de x est celui de x->p
+	assert(cmp != 0);
+	if(cmp > 0){
+		mpz_set(res->p,x->q);
+		mpz_set(res->q,x->p);
+	}else{	// cmp < 0	// On veut que x->q reste positif
+		mpz_neg(res->p,x->q);
+		mpz_neg(res->q,x->p);
+	}
+	// Pas de normalisation à faire ici
+	return;
+}
+void rat_add_ent(rationnel res,rationnel x,mpz_t n){
+	mpz_set(res->p,x->p);
+	mpz_addmul(res->p,x->q,n);
+	mpz_set(res->q,x->q);
+	rat_norm(res);
+	return;
+}
+void rat_mul_ent(rationnel res,rationnel x,mpz_t n){
+	mpz_mul(res->p,x->p,n);
+	mpz_set(res->q,x->q);
+	rat_norm(res);
+	return;
+}
+void rat_div_ent(rationnel res,rationnel x,mpz_t n){
+	int cmp = mpz_sgn(n);
+	assert(cmp != 0);
+	if(cmp > 0){
+		mpz_set(res->p,x->p);
+		mpz_mul(res->q,x->q,n);
+	}else{	// n < 0	// On veut que x->q reste positif
+		mpz_neg(res->p,x->p);
+		mpz_mul(res->q,x->q,n);
+		mpz_neg(res->q,res->q);
+	}
+	rat_norm(res);
+	return;
+}
+
+/*int main(){				// TESTS OK !
+	mpz_t a,b,c,d,e;
+	
+	rationnel x,y,z;
+	
+	mpz_init_set_si(a,2);
+	mpz_init_set_si(b,3);
+	mpz_init_set_si(c,-5);
+	mpz_init_set_si(d,10);
+	mpz_init_set_si(e,0);
+	
+	rat_init(&x);
+	rat_init(&y);
+	rat_init(&z);
+	rat_set_p(x,a);
+	rat_set_q(x,b);
+	rat_set_pq(y,c,d);
+	
+	fprintf(stdout,"\nINITIALISATION :\n");
+	rat_aff(x);
+	rat_aff(y);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nPLUS :\n");
+	rat_add(z,x,y);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nFOIS :\n");
+	rat_mul(z,x,y);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nMOINS :\n");
+	rat_neg(z,x);
+	rat_aff(z);
+	rat_neg(z,y);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nINVERSE :\n");
+	rat_inv(z,x);
+	rat_aff(z);
+	rat_inv(z,y);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nPLUS ENTIER :\n");
+	rat_add_ent(z,x,a);
+	rat_aff(z);
+	rat_add_ent(z,x,c);
+	rat_aff(z);
+	rat_add_ent(z,x,e);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nFOIS ENTIER :\n");
+	rat_mul_ent(z,x,a);
+	rat_aff(z);
+	rat_mul_ent(z,x,c);
+	rat_aff(z);
+	rat_mul_ent(z,x,e);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nSUR ENTIER :\n");
+	rat_div_ent(z,x,a);
+	rat_aff(z);
+	rat_div_ent(z,x,c);
+	rat_aff(z);
+	rat_div_ent(z,y,a);
+	rat_aff(z);
+	rat_div_ent(z,y,c);
+	rat_aff(z);
+	
+	fprintf(stdout,"\nENCORE X ET Y :\n");
+	rat_aff(x);
+	rat_aff(y);
+	
+	mpz_clear(a);
+	mpz_clear(b);
+	mpz_clear(c);
+	mpz_clear(d);
+	mpz_clear(e);
+	
+	rat_clear(&x);
+	rat_clear(&y);
+	rat_clear(&z);
+	fprintf(stdout,"\n");
+	return 0;
+}*/
