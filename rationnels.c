@@ -2,16 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <gmp.h>
-
-// On représente les nombres rationnels par des quotients d'entiers (premiers entre eux, et avec le dénominateur non nul)
-// On a besoin de ça, puisque la représentation flottante n'est pas exacte
-// On pourrait juste utilser les rationnels mpq_t de GNU MP, mais programmer ceci constitue un bon moyen de prendre en main les entiers de GNU MP
-struct s_rationnel{
-	mpz_t p;	// Numérateur
-	mpz_t q;	// Dénominateur (strictement positif)
-	// p et q doivent être premiers entre eux
-};
-typedef struct s_rationnel* rationnel;
+#include "rationnels.h"
 
 // Initialisation et destruction
 void rat_init(rationnel* x){
@@ -35,24 +26,39 @@ void rat_norm(rationnel x){
 	mpz_gcd(pgcd,x->p,x->q);
 	mpz_divexact(x->p,x->p,pgcd);
 	mpz_divexact(x->q,x->q,pgcd);
+	mpz_clear(pgcd);
 	return;
 }
 
-// Affectation du numérateur et du dénominateur
+// Donne à x la valeur de y
+void rat_set(rationnel x,rationnel y){	// !
+	mpz_set(x->p,y->p);
+	mpz_set(x->q,y->q);
+	return;
+}
+// Change le numérateur de x
 void rat_set_p(rationnel x,mpz_t p){
 	mpz_set(x->p,p);
 	rat_norm(x);
 	return;
 }
+// Change le dénominateur de x
 void rat_set_q(rationnel x,mpz_t q){
 	mpz_set(x->q,q);
 	rat_norm(x);
 	return;
 }
+// Change le numérateur et le dénominateur de x
 void rat_set_pq(rationnel x,mpz_t p,mpz_t q){
 	mpz_set(x->p,p);
 	mpz_set(x->q,q);
 	rat_norm(x);
+	return;
+}
+// Donne une valeur entière à x
+void rat_set_ent(rationnel x,mpz_t n){	// !
+	mpz_set(x->p,n);
+	mpz_set_ui(x->q,1);
 	return;
 }
 
@@ -66,9 +72,18 @@ void rat_aff(rationnel x){
 }
 
 // Opérations de base sur les rationnels (somme, produit, opposé, inverse, produit avec un entier, division par un entier) :
+// Remplace res par le résultat de l'opération (sur x et éventuellement y) voulue
+// res ne doit pas être l'une des opérandes ! (pas clair)
 void rat_add(rationnel res,rationnel x,rationnel y){
 	mpz_mul(res->p,x->p,y->q);
 	mpz_addmul(res->p,y->p,x->q);
+	mpz_mul(res->q,x->q,y->q);
+	rat_norm(res);
+	return;
+}
+void rat_sub(rationnel res,rationnel x,rationnel y){	// !
+	mpz_mul(res->p,x->p,y->q);
+	mpz_submul(res->p,y->p,x->q);
 	mpz_mul(res->q,x->q,y->q);
 	rat_norm(res);
 	return;
@@ -125,8 +140,12 @@ void rat_div_ent(rationnel res,rationnel x,mpz_t n){
 	rat_norm(res);
 	return;
 }
+/*void rat_addmul(rationnel res,rationnel x,rationnel y){
+	
+	return
+}*/
 
-/*int main(){				// TESTS OK !
+/*int main(){				// TESTS OK !	(Laissés là au cas où)
 	mpz_t a,b,c,d,e;
 	
 	rationnel x,y,z;
