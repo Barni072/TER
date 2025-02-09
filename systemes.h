@@ -1,7 +1,7 @@
 #ifndef SYSTEMES_H
 #define SYSTEME_H
 
-//#include <stdbool.h>
+#include <stdbool.h>
 #include <gmp.h>
 #include "rationnels.h"
 
@@ -15,10 +15,12 @@ typedef struct s_systeme systeme;
 
 void init_systeme(systeme* s,int nb_lign,int nb_col);
 void detruit_systeme(systeme* s);
+void copie_systeme(systeme* sc,systeme* sd);
 void lit_coeff(mpz_t res,systeme* s,int i,int j);
 void ecrit_coeff(systeme* s,int i,int j,mpz_t n);
 void affiche_systeme(systeme* s);
-//bool est_echelonne(systeme* s);	// Ne sert que dans sol_syst_echelonne (pour l'instant ?)
+//bool est_echelonne(systeme* s);		// Ne sert que dans sol_syst_echelonne
 void sol_syst_echelonne(systeme* s, rationnel* sol);
+bool verif_sol(systeme* s,rationnel* sol);
 
 #endif

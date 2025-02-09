@@ -24,6 +24,16 @@ void detruit_systeme(systeme* s){
 	free(s->t);
 }
 
+// Copie le système sc sur le système sd (qui doit déjà avoir été initialisé)
+void copie_systeme(systeme* sc,systeme* sd){
+	sd->n = sc->n;
+	sd->m = sc->m;
+	for(int k = 0;k < (sc->n)*(sc->m);k++){
+		mpz_set(sd->t[k],sc->t[k]);
+	}
+	return;
+}
+
 // Lit le coefficient (i,j) de s, et donne sa valeur à res
 // Suppose évidemment 0 <= i < n et 0 <= j < m
 void lit_coeff(mpz_t res,systeme* s,int i,int j){
@@ -48,12 +58,10 @@ void affiche_systeme(systeme* s){
 	for(int i = 0;i < n;i++){
 		// Affichage d'une ligne de coeffs
 		for(int j = 0;j < n;j++){
-			//fprintf(stdout,"%d ",s -> a[i][j]);		// ANCIEN
 			lit_coeff(k,s,i,j);
 			fprintf(stdout,"%d ",mpz_get_si(k));
 		}
 		// Affichage d'un coeff du second membre, puis passage à la ligne suivante
-		//fprintf(stdout,"  %d\n",s -> b[i]);		// ANCIEN
 		lit_coeff(k,s,i,n);
 		fprintf(stdout,"  %d\n",mpz_get_si(k));
 	}
@@ -70,8 +78,6 @@ bool est_echelonne(systeme* s){
 	mpz_init(k);
 	for(int j = 0;j < n;j++){
 		for(int i = j+1;i < n;i++){
-			//res = res && (s->a[i][j] == 0);		// ANCIEN
-			//fprintf(stdout,"%d %d %d\n",i,j,s->a[i][j]);	// DEBUG, et ancien
 			lit_coeff(k,s,i,j);
 			res = res && (mpz_cmp_ui(k,0) == 0);
 		}
@@ -84,34 +90,64 @@ bool est_echelonne(systeme* s){
 // Le tableau sol sert d'emplacement où la solution sera écrite (mal dit)
 // DANGER SI PIVOTS NULS
 void sol_syst_echelonne(systeme* s, rationnel* sol){
-	assert(est_echelonne(s));
+	//assert(est_echelonne(s));
 	int n = s->n;
 	//int m = s->m;		// Pas besoin, vaut n+1 pour l'instant
 	mpz_t e;
 	mpz_init(e);
-	rationnel r;
+	rationnel r,r2;
 	rat_init(&r);
+	rat_init(&r2);
 	for(int k = n-1;k >= 0;k--){	// Calcul de chaque coordonnée de la solution :
 		// Initialisation
-		//sol[k].p = s->b[k];	// ANCIEN
-		//sol[k].q = 1;		// ANCIEN
 		lit_coeff(e,s,k,n);
 		rat_set_ent(sol[k],e);
 		for(int l = k+1;l < n;l++){	// Ajoute les "contributions des lignes suivantes", une par une (pas clair) :
-			//rationnel x = prod_avec_ent(sol[l],s->a[k][l]);		// ANCIEN
-			//sol[k] = somme(sol[k],opp(x));		// ANCIEN
 			lit_coeff(e,s,k,l);
 			rat_mul_ent(r,sol[l],e);
-			rat_sub(sol[k],sol[k],r);	// NE MARCHERA CERTAINEMENT PAS
-			// Ce qui précède est ÉCLATÉ, il faudrait peut-être prendre le temps d'implémenter des fonctions rat_addmul et rat_submul
+			//rat_sub(sol[k],sol[k],r);	// A D'EXCELLENTES CHANCES DE FOIRER, DANGER
+			rat_sub(r2,sol[k],r);
+			rat_set(sol[k],r2);
 		}
 		// Division par le pivot :
-		//sol[k] = div_par_ent(sol[k],s->a[k][k]);	// ANCIEN
 		lit_coeff(e,s,k,k);
 		rat_div_ent(r,sol[k],e);		
 		rat_set(sol[k],r);
 	}
 	mpz_clear(e);
 	rat_clear(&r);
+	rat_clear(&r2);
 	return;
+}
+
+bool verif_sol(systeme* s,rationnel* sol){
+	int n = s->n;
+	mpz_t coeff,zero;
+	rationnel som,tmp1,tmp2;
+	mpz_init(coeff);
+	mpz_init_set_si(zero,0);
+	rat_init(&som);
+	rat_init(&tmp1);
+	rat_init(&tmp2);
+	// On suppose m = n+1;
+	bool res = true;
+	for(int i = 0;i < n;i++){
+		rat_set_ent(som,zero);
+		for(int j = 0;j < n;j++){
+			lit_coeff(coeff,s,i,j);
+			//rat_addmul(s,coeff,sol[j]);	// On n'a pas implémenté de rat_addmul, c'est ballot
+			rat_mul_ent(tmp1,sol[j],coeff);
+			rat_add(tmp2,som,tmp1);	// Car "rat_add(s,s,tmp1);" foirerait
+			rat_set(som,tmp2);
+		}
+		// Comparaison avec le coeff du second membre :
+		lit_coeff(coeff,s,i,n);
+		res = res && rat_comp_ent(som,coeff);
+	}
+	mpz_clear(coeff);
+	mpz_clear(zero);
+	rat_clear(&som);
+	rat_clear(&tmp1);
+	rat_clear(&tmp2);
+	return res;
 }
