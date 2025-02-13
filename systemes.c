@@ -6,7 +6,6 @@
 #include "rationnels.h"
 #include "systemes.h"
 
-// Serait-il nécessaire d'utiliser des mpz_t pour le nombre de lignes et de colonnes ?
 void init_systeme(systeme* s,int nb_lign,int nb_col){	// Si cette fonction prend un système (au lieu d'un pointeur vers un système), il y a un problème au moment de libérer la mémoire allouée pour s.t
 	s->n = nb_lign;
 	s->m = nb_col;

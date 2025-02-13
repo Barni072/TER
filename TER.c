@@ -7,59 +7,56 @@
 #include "systemes.h"
 #include "bareiss.h"
 #include "gauss_sys_rat.h"
+#include "io.h"
 
 int main(){	
+	
 	// Initialisation
+	gmp_randstate_t state;
+	gmp_randinit_default(state);
+	ecrit_fichier_au_pif("systeme2.txt",10,state,16);
 	systeme s,s_g;
-	init_systeme(&s,3,4);
-	init_systeme(&s_g,3,4);
-	int t_i[12] = {
-		1,2,-3,		9,
-		4,7,-8,		-5,
-		-12,0,5,	4};
-	mpz_t t_m[12];
-	for(int i = 0;i < 12;i++){
-		mpz_init_set_si(t_m[i],t_i[i]);
-	}
-	for(int i = 0;i < 3;i++){
-		for(int j = 0;j < 4;j++){
-			ecrit_coeff(&s,i,j,t_m[i*4+j]);
-		}
-	}
-	copie_systeme(&s,&s_g);		// Copie qui sera utilisée par l'algo de Gauss (pas vraiment nécessaire, mais c'est plus propre que de lui donner s_ini)
+	//init_lit_systeme(&s,"systeme.txt");
+	init_lit_systeme(&s,"systeme2.txt");
+	int n = s.n;
+	int m = s.m;
+	init_systeme(&s_g,n,m);
+	copie_systeme(&s,&s_g);		// Copie qui sera utilisée par l'algo de Gauss (pas vraiment nécessaire, mais c'est plus propre que de lui donner s_ini)	
 	
 	// Création une copie de s, qu'on ne modiefiera pas, et qui va permettre de tester notre solution à la fin
 	systeme s_ini;
-	init_systeme(&s_ini,3,4);
+	init_systeme(&s_ini,n,m);
 	copie_systeme(&s,&s_ini);
 	
 	// Calcul d'une solution, avec l'algo de Bareiss
-	rationnel sol[3];
-	for(int i = 0;i < 3;i++){
+	rationnel sol[n];
+	for(int i = 0;i < n;i++){
 		rat_init(&sol[i]);
 	}
 	bareiss(&s);
 	sol_syst_echelonne(&s,sol);
 	
 	// Calcul d'une solution, avec l'algo de Gauss
-	rationnel sol_g[3];
-	for(int i = 0;i < 3;i++){
+	rationnel sol_g[n];
+	for(int i = 0;i < n;i++){
 		rat_init(&sol_g[i]);
 	}
 	gauss(&s_g,sol_g);
 	
 	// Affichage du système et de la solution
-	fprintf(stdout,"\nSystème de départ :\n");
+	fprintf(stdout,"\n\nSYSTÈME DE DÉPART :\n");
 	affiche_systeme(&s_ini);		// Système de départ
-	fprintf(stdout,"\nSystème échelonné (par Bareiss) :\n");
+	fprintf(stdout,"\n\nSYSTÈME ÉCHELONNÉ (BAREISS) :\n");
 	affiche_systeme(&s);		// Système échelonné
-	fprintf(stdout,"\nSolution (Bareiss) :\n");
-	for(int i = 0;i < 3;i++){
+	fprintf(stdout,"\n\nSOLUTION (BAREISS) :\n");
+	for(int i = 0;i < n;i++){
 		rat_aff(sol[i]);
+		fprintf(stdout,"\n");
 	}
-	fprintf(stdout,"\nSolution (Gauss) :\n");
-	for(int i = 0;i < 3;i++){
+	fprintf(stdout,"\nSOLUTION (GAUSS) :\n");
+	for(int i = 0;i < n;i++){
 		rat_aff(sol_g[i]);
+		fprintf(stdout,"\n");
 	}
 	fprintf(stdout,"\n");
 	
@@ -73,14 +70,12 @@ int main(){
 	assert(verif_sol(&s_ini,sol_g));
 	
 	// Suppression des objets utilisés
-	for(int i = 0;i < 3;i++){
+	for(int i = 0;i < n;i++){
 		rat_clear(&sol[i]);
-	}
-	for(int i = 0;i < 12;i++){
-		mpz_clear(t_m[i]);
 	}
 	detruit_systeme(&s);
 	detruit_systeme(&s_g);
 	detruit_systeme(&s_ini);
+	gmp_randclear(state);
 	return 0;
-}		// TODO : récupérer le système à tester depuis un fichier texte, comparer les temps d'exécution des algos de Gauss et Bareiss
+}
