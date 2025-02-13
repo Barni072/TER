@@ -14,7 +14,7 @@ int main(){
 	// Initialisation
 	gmp_randstate_t state;
 	gmp_randinit_default(state);
-	ecrit_fichier_au_pif("systeme2.txt",10,state,16);
+	ecrit_fichier_au_pif("systeme2.txt",7,state,16);
 	systeme s,s_g;
 	//init_lit_systeme(&s,"systeme.txt");
 	init_lit_systeme(&s,"systeme2.txt");

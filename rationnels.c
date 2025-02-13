@@ -69,11 +69,17 @@ void rat_set_si(rationnel x,long int n){	// !
 }
 
 // Affiche le numérateur, le dénominateur et une approximation flottante du rationnel x
+// L'estimation est potentiellement foireuse si le numérateur et le dénominateur sont trop grands
 void rat_aff(rationnel x){
 	long int p = mpz_get_si(x->p);
 	unsigned long int q = mpz_get_ui(x->q);
 	double esti = ((double)p/(double)q);
-	fprintf(stdout,"Numérateur : %d\nDénominateur : %d\nApproximation : %.4f\n",p,q,esti);
+	//fprintf(stdout,"Numérateur : %d\nDénominateur : %d\nApproximation : %.4f\n",p,q,esti);
+	fprintf(stdout,"Numérateur : ");
+	mpz_out_str(stdout,10,x->p);
+	fprintf(stdout,"\nDénominateur : ");
+	mpz_out_str(stdout,10,x->q);
+	fprintf(stdout,"\nApproximation : %.8f\n"),esti;
 	return;
 }
 

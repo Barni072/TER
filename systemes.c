@@ -58,11 +58,17 @@ void affiche_systeme(systeme* s){
 		// Affichage d'une ligne de coeffs
 		for(int j = 0;j < n;j++){
 			lit_coeff(k,s,i,j);
-			fprintf(stdout,"%d ",mpz_get_si(k));
+			//fprintf(stdout,"%d ",mpz_get_si(k));
+			mpz_out_str(stdout,10,k);
+			fputc(' ',stdout);
 		}
 		// Affichage d'un coeff du second membre, puis passage à la ligne suivante
 		lit_coeff(k,s,i,n);
-		fprintf(stdout,"  %d\n",mpz_get_si(k));
+		//fprintf(stdout,"  %d\n",mpz_get_si(k));
+		fputc(' ',stdout);
+		fputc(' ',stdout);
+		mpz_out_str(stdout,10,k);
+		fputc('\n',stdout);
 	}
 	mpz_clear(k);
 	return;

@@ -7,45 +7,10 @@
 
 // On suppose que le fichier ne contient que des chiffres, des signes moins, des espaces, et éventuellement des sauts de ligne
 
-/*
-// Lit un entier dans le fichier, et le renvoie
-int lit_int(FILE* f){	// Le résultat est en fait un unsigned long int...
-	char c = fgetc(f);
-	int res = 0;
-	assert((c != ' ')&&(c != '\n')&&(c != EOF)&&(c != '-'));
-	while((c != ' ')&&(c != '\n')&&(c != EOF)){
-		int m = (int)c;
-		res = 10*res + m;
-		c = fgetc(f);
-	}
-	return res;
-}
-
-//Lit un entier dans le fichier, et l'écrit dans n
-void lit_mpz(mpz_t n,FILE* f){
-	char c = fgetc(f);
-	bool neg = false;
-	assert((c != ' ')&&(c != '\n')&&(c != EOF));
-	mpz_set_ui(n,0);
-	if(c == '-'){
-		neg = true;
-		c = fgetc(f);
-	}
-	while((c != ' ')&&(c != '\n')&&(c != EOF)){
-		int m = (int)c;
-		mpz_mul_ui(n,n,10);
-		mpz_add_ui(n,n,m);
-		c = fgetc(f);
-	}
-	if(neg) mpz_neg(n,n);
-	return;
-}*/
-// Ce qui précède est bancal et parfaitement inutile, on peut utiliser fscanf (au moins pour des entiers de taille raisonnable)
-
 // Initialise le système s à partir des valeurs contenues dans un fichier
 void init_lit_systeme(systeme* s,char* nom){
 	FILE* f = fopen(nom,"r");
-	assert(f != NULL);	// ?
+	assert(f != NULL);
 	//int n = lit_int(f);
 	//int m = lit_int(f);
 	int n,m;
@@ -59,8 +24,9 @@ void init_lit_systeme(systeme* s,char* nom){
 		for(int j = 0;j < m;j++){
 			mpz_init(s->t[i*m + j]);
 			//lit_mpz(s->t[i*m + j],f);
-			fscanf(f,"%ld",&c);
-			mpz_set_si(s->t[i*m + j],c);
+			//fscanf(f,"%ld",&c);
+			//mpz_set_si(s->t[i*m + j],c);
+			mpz_inp_str(s->t[i*m + j],f,10);
 		}
 	}
 	fclose(f);
@@ -72,6 +38,7 @@ void init_lit_systeme(systeme* s,char* nom){
 void ecrit_fichier_au_pif(char* nom,int n,gmp_randstate_t state,mp_bitcnt_t b){
 	int m = n+1;
 	FILE* f = fopen(nom,"w+");
+	assert(f != NULL);
 	mpz_t c;
 	mpz_init(c);
 	fprintf(f,"%d %d ",n,m);
