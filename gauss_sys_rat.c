@@ -68,17 +68,9 @@ void gauss_ech(sys_rat* sr){
 				rat_mul(b,kj,a);
 				rat_sub(c,ij,b);
 				ecrit_coeff_rat(sr,i,j,c);
-				
-				/*mpz_mul(e,ij,p);
-				mpz_submul(e,ik,kj);
-				//assert(mpz_divisible_p(e,d) != 0);	// DEBUG/VÉRIF
-				mpz_divexact(ij,e,d);
-				ecrit_coeff(s,i,j,ij);*/
 			}
 			rat_set_si(b,0);
 			ecrit_coeff_rat(sr,i,k,b);
-			
-			
 		}
 	}
 	rat_clear(&p);
@@ -96,7 +88,7 @@ void gauss_ech(sys_rat* sr){
 void sol_sys_rat_ech(sys_rat* sr,rationnel* sol){
 	int n = sr->n;
 	//int m = sr->m;	// Pas besoin, m=n+1
-	rationnel r,s;		// On devrait s'en sortir avec 2 variables temporaires...
+	rationnel r,s;
 	rat_init(&r);
 	rat_init(&s);
 	for(int k = n-1;k >= 0;k--){
@@ -108,9 +100,6 @@ void sol_sys_rat_ech(sys_rat* sr,rationnel* sol){
 			rat_set(sol[k],r);
 		}
 		lit_coeff_rat(r,sr,k,k);
-		//rat_inv(s,r);
-		//rat_mul(r,sol[k],s);
-		//rat_set(sol[k],r);
 		rat_div(s,sol[k],r);
 		rat_set(sol[k],s);
 	}
