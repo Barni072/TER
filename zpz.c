@@ -1,5 +1,6 @@
 #include <gmp.h>
 #include <assert.h>
+#include <stdlib.h>
 #include "systemes.h"
 
 // On représentera les éléments de Z/pZ par des mpz_t
@@ -20,18 +21,40 @@ void zpz_mul(mpz_t res,mpz_t x,mpz_t y,mpz_t p){
 	mpz_mod(res,res,p);
 	return;
 }
-void zpz_inv(mpz_t res,mpz_t x,mpz_t p){
+/*void zpz_inv(mpz_t res,mpz_t x,mpz_t p){
 	//assert(mpz_cmp_si(x,0) != 0);
-	/*mpz_t u,v;
+	mpz_t u,v;
 	mpz_init(u);
 	mpz_init(v);
 	mpz_gcdext(g,u,v,x,p);
 	mpz_abs(res,u);
 	mpz_clear(u);
-	mpz_clear(v);*/
-	
-	// Plus simple : (trop simple ?)
-	mpz_invert(res,x,p);
+	mpz_clear(v);
+	return;
+}*/		// Plutôt utiliser : mpz_invert(res,x,p);
+
+// Initialise le système sdest, et en fait une copie dans Z/pZ du système ssrc
+// Les coefficients de sdest sont les restes de la division euclidienne des coefficients de ssrc par p
+void init_copie_systeme_zpz(systeme* sdest,systeme* ssrc,mpz_t p){
+	int n = ssrc->n;
+	int m = ssrc->m;
+	sdest -> n = n;
+	sdest -> m = m;
+	sdest -> t = malloc(sizeof(mpz_t)*n*m);
+	for(int k = 0;k < n*m;k++){
+		mpz_init(sdest->t[k]);
+		mpz_mod(sdest->t[k],ssrc->t[k],p);
+	}
+	return;
+}
+
+// Modifie le système s, en remplaçant tous ses coefficients par les restes de leurs division euclidienne par p
+void systeme_mod_p(systeme* s,mpz_t p){
+	int n = s->n;
+	int m = s->m;
+	for(int k = 0;k < n*m;k++){
+		mpz_mod(s->t[k],s->t[k],p);
+	}
 	return;
 }
 
@@ -58,7 +81,8 @@ void zpz_gauss(systeme* s,mpz_t p){
 	// Échelonne le système
 	for(int k = 0;k < n;k++){
 		lit_coeff(piv,s,k,k);	// piv : pivot (supposé non nul)
-		zpz_inv(ivp,piv,p);		// ivp : inverse du pivot dans Z/pZ
+		//zpz_inv(ivp,piv,p);
+		mpz_invert(ivp,piv,p);	// ivp : inverse du pivot dans Z/pZ
 		for(int i = k+1;i < n;i++){
 			lit_coeff(ik,s,i,k);
 			zpz_mul(a,ivp,ik,p);	// (Ligne i) <- (Ligne i) - a * (Ligne k)
@@ -81,5 +105,44 @@ void zpz_gauss(systeme* s,mpz_t p){
 	mpz_clear(a);
 	mpz_clear(b);
 	mpz_clear(c);
+	return;
+}
+
+// Copie dans sol la solution du système préalablement échelonné s
+void zpz_sol_syst_ech(mpz_t* sol,systeme* s,mpz_t p){
+	int n = s -> n;
+	mpz_t a,b;
+	mpz_init(a);
+	mpz_init(b);
+	for(int k = n-1;k >= 0;k--){
+		lit_coeff(sol[k],s,k,n);
+		for(int l = k+1;l < n;l++){
+			lit_coeff(a,s,k,l);
+			zpz_mul(b,sol[l],a,p);
+			zpz_sub(sol[k],sol[k],b,p);	
+		}
+		lit_coeff(a,s,k,k);
+		mpz_invert(b,a,p);
+		zpz_mul(sol[k],sol[k],b,p);
+	}
+	mpz_clear(a);
+	mpz_clear(b);
+	return;
+}
+
+// Écrit dans sol la solution du systeme s dans Z/pZ, en travaillant directement sur s
+void zpz_sans_copie(mpz_t* sol,systeme* s,mpz_t p){
+	zpz_gauss(s,p);
+	zpz_sol_syst_ech(sol,s,p);
+	return;
+}
+
+// Écrit dans sol la solution du système s dans Z/pZ, sans modifier s
+void zpz_avec_copie(mpz_t* sol,systeme* s,mpz_t p){
+	systeme s_zpz;
+	init_copie_systeme_zpz(&s_zpz,s,p);
+	zpz_gauss(&s_zpz,p);
+	zpz_sol_syst_ech(sol,&s_zpz,p);
+	detruit_systeme(&s_zpz);
 	return;
 }

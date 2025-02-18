@@ -23,12 +23,28 @@ void detruit_systeme(systeme* s){
 	free(s->t);
 }
 
-// Copie le système sc sur le système sd (qui doit déjà avoir été initialisé)
-void copie_systeme(systeme* sc,systeme* sd){
-	sd->n = sc->n;
-	sd->m = sc->m;
-	for(int k = 0;k < (sc->n)*(sc->m);k++){
-		mpz_set(sd->t[k],sc->t[k]);
+// Copie le système ssrc sur le système sdest (qui doit déjà avoir été initialisé)
+// En pratique, on utilisera probablement surtout init_copie_systeme
+void copie_systeme(systeme* sdest,systeme* ssrc){
+	int n = ssrc->n;
+	int m = ssrc->m;
+	sdest->n = n;
+	sdest->m = m;
+	for(int k = 0;k < n*m;k++){
+		mpz_set(sdest->t[k],ssrc->t[k]);
+	}
+	return;
+}
+
+// Initialise le système sdest, et en fait une copie du système ssrc
+void init_copie_systeme(systeme* sdest,systeme* ssrc){
+	int n = ssrc->n;
+	int m = ssrc->m;
+	sdest -> n = n;
+	sdest -> m = m;
+	sdest -> t = malloc(sizeof(mpz_t)*n*m);
+	for(int k = 0;k < n*m;k++){
+		mpz_init_set(sdest->t[k],ssrc->t[k]);
 	}
 	return;
 }

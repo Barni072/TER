@@ -15,7 +15,8 @@ typedef struct s_systeme systeme;
 
 void init_systeme(systeme* s,int nb_lign,int nb_col);
 void detruit_systeme(systeme* s);
-void copie_systeme(systeme* sc,systeme* sd);
+void copie_systeme(systeme* sdest,systeme* ssrc);
+void init_copie_systeme(systeme* sdest,systeme* ssrc);
 void lit_coeff(mpz_t res,systeme* s,int i,int j);
 void ecrit_coeff(systeme* s,int i,int j,mpz_t n);
 void affiche_systeme(systeme* s);
