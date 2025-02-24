@@ -1,7 +1,9 @@
 #include <gmp.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "systemes.h"
+#include "zpz.h"
 
 // On représentera les éléments de Z/pZ par des mpz_t
 
@@ -49,6 +51,7 @@ void init_copie_systeme_zpz(systeme* sdest,systeme* ssrc,mpz_t p){
 }
 
 // Modifie le système s, en remplaçant tous ses coefficients par les restes de leurs division euclidienne par p
+// Il est impératif d'appeler cette fonction sur s avant d'utiliser celles qui suivent
 void systeme_mod_p(systeme* s,mpz_t p){
 	int n = s->n;
 	int m = s->m;
@@ -56,6 +59,30 @@ void systeme_mod_p(systeme* s,mpz_t p){
 		mpz_mod(s->t[k],s->t[k],p);
 	}
 	return;
+}
+
+// Vérifie si sol est une solution de s dans Z/pZ
+bool verif_sol_zpz(systeme* s,mpz_t* sol,mpz_t p){
+	int n = s->n;
+	bool res = true;
+	mpz_t ij,som,tmp;
+	mpz_init(ij);
+	mpz_init(som);
+	mpz_init(tmp);
+	for(int i = 0; i < n;i++){
+		mpz_set_si(som,0);
+		for(int j = 0;j < n;j++){
+			lit_coeff(ij,s,i,j);
+			zpz_mul(tmp,ij,sol[j],p);
+			zpz_add(som,som,tmp,p);
+		}
+		lit_coeff(tmp,s,i,n);
+		res = res && (mpz_cmp(sol[i],tmp) == 0);
+	}
+	mpz_clear(ij);
+	mpz_clear(som);
+	mpz_clear(tmp);
+	return res;
 }
 
 // Échelonne le système s dans Z/pZ, avec l'algorithme de Gauss
@@ -138,11 +165,12 @@ void zpz_sans_copie(mpz_t* sol,systeme* s,mpz_t p){
 }
 
 // Écrit dans sol la solution du système s dans Z/pZ, sans modifier s
-void zpz_avec_copie(mpz_t* sol,systeme* s,mpz_t p){
+// (sol, s et p sont "contenus" dans *a)
+void* zpz_multi(zpz_args* a){
 	systeme s_zpz;
-	init_copie_systeme_zpz(&s_zpz,s,p);
-	zpz_gauss(&s_zpz,p);
-	zpz_sol_syst_ech(sol,&s_zpz,p);
+	init_copie_systeme_zpz(&s_zpz,a->s,a->p);
+	zpz_gauss(&s_zpz,a->p);
+	zpz_sol_syst_ech(a->sol,&s_zpz,a->p);
 	detruit_systeme(&s_zpz);
-	return;
+	return NULL;	// ?
 }

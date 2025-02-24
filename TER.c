@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <gmp.h>
+#include <pthread.h>
 #include "rationnels.h"
 #include "systemes.h"
 #include "bareiss.h"
@@ -10,12 +11,55 @@
 #include "io.h"
 #include "zpz.h"
 
+/*void test_zpz_multi(systeme* s,int n,int thr,gmp_randstate_t state){
+	// Déclarations
+	pthread_t* t = malloc(thr * sizeof(pthread_t));
+	mpz_t* p = malloc(thr * sizeof(mpz_t));
+	mpz_t* sol = malloc(n * thr * sizeof(mpz_t));
+	zpz_args* a = malloc(thr * sizeof(zpz_args));
+	mpz_t k;
+	// Initialisations
+	mpz_init(k);
+	for(int i = 0;i < thr;i++){
+		for(int j = 0;j < n;j++){
+			mpz_init(sol[i*n + j]);
+		}
+		mpz_init(a[i].p);
+		mpz_urandomb(k,state,32);
+		mpz_nextprime(p[i],k);
+		a[i].s = s;		// zpz_multi va créer sa propre copie de s, donc on peut donner le même s à chaque thread (s ne sera pas modifié)
+		a[i].sol = &sol[i*n];
+	}
+	// Lancement des calculs en parallèle
+	for(int i = 0;i < thr;i++){
+		pthread_create(&t[i],NULL,zpz_multi,&a[i]);
+	}
+	// "Fin" des calculs
+	for(int i = 0;i < thr;i++){
+		pthread_join(t[i],NULL);
+	}	
+	// Suppression des objets utilisés
+	mpz_clear(k);
+	for(int i = 0;i < thr;i++){
+		mpz_clear(p[i]);
+		for(int j = 0;j < n;j++){
+			mpz_clear(sol[i*n + j]);
+		}
+		mpz_clear(a[i].p);
+	}
+	free(t);
+	free(p);
+	free(sol);
+	free(a);
+	return;
+}*/
+
 int main(){
 	// Initialisation
 	gmp_randstate_t state;
 	gmp_randinit_default(state);	// L'aléatoire semble cassé, il y a de l'amélioration possible par ici...
 	ecrit_fichier_au_pif("systeme2.txt",7,state,16);
-	systeme s,s_g,s_zpz,s_ini;
+	systeme s,s_g,s_zpz,s_ini,s_zpzm;
 	init_lit_systeme(&s,"systeme.txt");
 	//init_lit_systeme(&s,"systeme2.txt");
 	int n = s.n;		// Nombre de lignes
@@ -23,6 +67,7 @@ int main(){
 	init_copie_systeme(&s_ini,&s);	// Copie qui servira à conserver le système initial, pour pouvoir tester notre solution à la fin
 	init_copie_systeme(&s_g,&s);	// Copie qui sera utilisée par l'algo de Gauss (pas vraiment nécessaire, mais c'est plus propre que de lui donner s_ini)
 	init_copie_systeme(&s_zpz,&s);	// Copie qui sera utilisée pour tester l'algo de Gauss dans Z/pZ
+	init_copie_systeme(&s_zpzm,&s);	// Copie qui sera utilisée pour tester l'algo de Gauss dans plusieurs Z/pZ à la fois
 	rationnel sol[n],sol_g[n];	// Futur emplacement des solutions
 	mpz_t sol_zpz[n];		// Idem
 	for(int i = 0;i < n;i++){
@@ -41,7 +86,7 @@ int main(){
 	// Calcul d'une solution, avec l'algo de Gauss
 	gauss(&s_g,sol_g);
 	
-	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard")
+	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard" avec à peu près 32 bits)
 	mpz_urandomb(k,state,32);
 	mpz_nextprime(p,k);
 	zpz_sans_copie(sol_zpz,&s_zpz,p);
@@ -83,9 +128,11 @@ int main(){
 	assert(verif_sol(&s_ini,sol_g));
 	
 	// TODO : Vérifications pour Gauss dans Z/pZ...
-	// ...
+	//assert(verif_sol_zpz(&s_zpzm,sol_zpz,p));
+	// ATTENTION, TEST CI-DESSUS PAS OK
 	
-	
+	// Essai d'exécution de Gauss sur des Z/pZ en parallèle
+	//test_zpz_multi(&s_zpzm,n,8,state);
 	
 	// Suppression des objets utilisés
 	for(int i = 0;i < n;i++){
@@ -99,6 +146,7 @@ int main(){
 	detruit_systeme(&s_ini);
 	detruit_systeme(&s_g);
 	detruit_systeme(&s_zpz);
+	detruit_systeme(&s_zpzm);
 	gmp_randclear(state);
 	return 0;
 }
