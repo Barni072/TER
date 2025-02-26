@@ -1,11 +1,13 @@
-#include <gmp.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <gmp.h>
 #include "systemes.h"
 #include "zpz.h"
 
 // On représentera les éléments de Z/pZ par des mpz_t
+// TODO : passer à des int (car p s'écrit en au plus 30 bits)
 
 // Opérations basiques sur les éléments de Z/pZ (p premier)
 void zpz_add(mpz_t res,mpz_t x,mpz_t y,mpz_t p){
@@ -62,6 +64,7 @@ void systeme_mod_p(systeme* s,mpz_t p){
 }
 
 // Vérifie si sol est une solution de s dans Z/pZ
+// Les coefficients de s doivent être compris entre 0 et p-1
 bool verif_sol_zpz(systeme* s,mpz_t* sol,mpz_t p){
 	int n = s->n;
 	bool res = true;
@@ -69,6 +72,7 @@ bool verif_sol_zpz(systeme* s,mpz_t* sol,mpz_t p){
 	mpz_init(ij);
 	mpz_init(som);
 	mpz_init(tmp);
+	affiche_systeme(s);		// DEBUG
 	for(int i = 0; i < n;i++){
 		mpz_set_si(som,0);
 		for(int j = 0;j < n;j++){
@@ -77,7 +81,11 @@ bool verif_sol_zpz(systeme* s,mpz_t* sol,mpz_t p){
 			zpz_add(som,som,tmp,p);
 		}
 		lit_coeff(tmp,s,i,n);
-		res = res && (mpz_cmp(sol[i],tmp) == 0);
+			{mpz_out_str(stderr,10,som);
+			fputc(' ',stderr);
+			mpz_out_str(stderr,10,tmp);
+			fputc('\n',stderr);}		// DEBUG
+		res = res && (mpz_cmp(som,tmp) == 0);
 	}
 	mpz_clear(ij);
 	mpz_clear(som);
@@ -86,6 +94,7 @@ bool verif_sol_zpz(systeme* s,mpz_t* sol,mpz_t p){
 }
 
 // Échelonne le système s dans Z/pZ, avec l'algorithme de Gauss
+// Les coefficients de s doivent être compris entre 0 et p-1
 void zpz_gauss(systeme* s,mpz_t p){
 	int n = s->n;
 	mpz_t piv,ivp,ij,ik,kj,a,b,c;
@@ -136,6 +145,7 @@ void zpz_gauss(systeme* s,mpz_t p){
 }
 
 // Copie dans sol la solution du système préalablement échelonné s
+// Les coefficients de s doivent être compris entre 0 et p-1
 void zpz_sol_syst_ech(mpz_t* sol,systeme* s,mpz_t p){
 	int n = s -> n;
 	mpz_t a,b;
@@ -166,11 +176,17 @@ void zpz_sans_copie(mpz_t* sol,systeme* s,mpz_t p){
 
 // Écrit dans sol la solution du système s dans Z/pZ, sans modifier s
 // (sol, s et p sont "contenus" dans *a)
-void* zpz_multi(zpz_args* a){
+void* zpz_multi(void* a_){
+	zpz_args* a = (zpz_args*)a_;
 	systeme s_zpz;
-	init_copie_systeme_zpz(&s_zpz,a->s,a->p);
+	init_copie_systeme_zpz(&s_zpz,a->s,a->p);	// Faire cette étape avant, sinon ça a l'air d'échouer sur le 2ème thread
+		{fprintf(stderr,"p = ");
+		mpz_out_str(stderr,10,a->p);
+		fputc('\n',stderr);}	// DEBUG
 	zpz_gauss(&s_zpz,a->p);
 	zpz_sol_syst_ech(a->sol,&s_zpz,a->p);
+	assert(verif_sol_zpz(&s_zpz,a->sol,a->p));	// Test éclaté car les coeffs de s ne sont pas nécessairement entre 0 et p-1
+	assert(verif_sol_zpz(a->s,a->sol,a->p));		// Test mieux, on l'enlèvera plus tard...
 	detruit_systeme(&s_zpz);
-	return NULL;	// ?
+	return NULL;
 }

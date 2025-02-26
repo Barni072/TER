@@ -21,6 +21,6 @@ bool verif_sol_zpz(systeme* s,mpz_t* sol,mpz_t p);
 //void zpz_gauss(systeme* s,mpz_t p);
 //void zpz_sol_syst_ech(systeme* s,mpz_t* sol,mpz_t p);
 void zpz_sans_copie(mpz_t* sol,systeme* s,mpz_t p);
-void* zpz_multi(zpz_args* a);
+void* zpz_multi(void* a_);	// a_ est en fait un pointeur vers un zpz_args
 
 #endif

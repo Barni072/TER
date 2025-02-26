@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <gmp.h>
 #include <pthread.h>
+#include <time.h>
 #include "rationnels.h"
 #include "systemes.h"
 #include "bareiss.h"
@@ -11,10 +12,9 @@
 #include "io.h"
 #include "zpz.h"
 
-/*void test_zpz_multi(systeme* s,int n,int thr,gmp_randstate_t state){
+void test_zpz_multi(systeme* s,int n,int thr,gmp_randstate_t state){
 	// Déclarations
 	pthread_t* t = malloc(thr * sizeof(pthread_t));
-	mpz_t* p = malloc(thr * sizeof(mpz_t));
 	mpz_t* sol = malloc(n * thr * sizeof(mpz_t));
 	zpz_args* a = malloc(thr * sizeof(zpz_args));
 	mpz_t k;
@@ -26,7 +26,7 @@
 		}
 		mpz_init(a[i].p);
 		mpz_urandomb(k,state,32);
-		mpz_nextprime(p[i],k);
+		mpz_nextprime(a[i].p,k);
 		a[i].s = s;		// zpz_multi va créer sa propre copie de s, donc on peut donner le même s à chaque thread (s ne sera pas modifié)
 		a[i].sol = &sol[i*n];
 	}
@@ -41,24 +41,23 @@
 	// Suppression des objets utilisés
 	mpz_clear(k);
 	for(int i = 0;i < thr;i++){
-		mpz_clear(p[i]);
 		for(int j = 0;j < n;j++){
 			mpz_clear(sol[i*n + j]);
 		}
 		mpz_clear(a[i].p);
 	}
 	free(t);
-	free(p);
 	free(sol);
 	free(a);
 	return;
-}*/
+}
 
 int main(){
 	// Initialisation
 	gmp_randstate_t state;
-	gmp_randinit_default(state);	// L'aléatoire semble cassé, il y a de l'amélioration possible par ici...
-	ecrit_fichier_au_pif("systeme2.txt",7,state,16);
+	gmp_randinit_default(state);
+	gmp_randseed_ui(state,time(NULL));
+	ecrit_fichier_au_pif("systeme2.txt",20,state,16);
 	systeme s,s_g,s_zpz,s_ini,s_zpzm;
 	init_lit_systeme(&s,"systeme.txt");
 	//init_lit_systeme(&s,"systeme2.txt");
@@ -79,34 +78,37 @@ int main(){
 	mpz_init(k);
 	mpz_init(p);
 	
-	// Calcul d'une solution, avec l'algo de Bareiss
-	bareiss(&s);
-	sol_syst_echelonne(&s,sol);
-	
-	// Calcul d'une solution, avec l'algo de Gauss
-	gauss(&s_g,sol_g);
-	
-	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard" avec à peu près 32 bits)
-	mpz_urandomb(k,state,32);
-	mpz_nextprime(p,k);
-	zpz_sans_copie(sol_zpz,&s_zpz,p);
-	
-	// Affichage du système et de la solution
+	// Affichage du système de départ
 	fprintf(stdout,"\n\nSYSTÈME DE DÉPART :\n");
 	affiche_systeme(&s_ini);		// Système de départ
 	
+	// Calcul d'une solution, avec l'algo de Bareiss
+	// Prend un temps raisonnable
+	/*bareiss(&s);
+	sol_syst_echelonne(&s,sol);
 	fprintf(stdout,"\n\nSYSTÈME ÉCHELONNÉ (BAREISS) :\n");
 	affiche_systeme(&s);		// Système échelonné
 	fprintf(stdout,"\n\nSOLUTION (BAREISS) :\n");
 	for(int i = 0;i < n;i++){
 		rat_aff(sol[i]);
 		fprintf(stdout,"\n");
-	}
+	}*/
+	
+	// Calcul d'une solution, avec l'algo de Gauss
+	// Prend 3 plombes
+	/*gauss(&s_g,sol_g);
 	fprintf(stdout,"\nSOLUTION (GAUSS) :\n");
 	for(int i = 0;i < n;i++){
 		rat_aff(sol_g[i]);
 		fprintf(stdout,"\n");
-	}
+	}*/
+	
+	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard" avec à peu près 32 bits)
+	// Va suspicieusement vite
+	/*mpz_urandomb(k,state,30);
+	mpz_nextprime(p,k);
+	//mpz_set_si(p,17);	// TEMPORAIRE
+	zpz_sans_copie(sol_zpz,&s_zpz,p);
 	fprintf(stdout,"\nSYSTÈME ÉCHELONNÉ (GAUSS Z/pZ) :\n(p = ");
 	mpz_out_str(stdout,10,p);
 	fprintf(stdout,")\n");
@@ -116,23 +118,21 @@ int main(){
 		mpz_out_str(stdout,10,sol_zpz[i]);
 		fprintf(stdout,"\n");
 	}
-	fprintf(stdout,"\n");
+	fprintf(stdout,"\n");*/
 	
 	// Vérifications (Bareiss)
 	//assert(verif_sol(&s,sol));		// Vérif "triviale"
-	assert(verif_sol(&s_ini,sol));		// Vérif sur le systeme de départ
-	//ecrit_coeff(&s_ini,0,0,t_m[6]);
-	//assert(!verif_sol(&s_ini,sol));		// Autre vérif carrément stupide
+	//assert(verif_sol(&s_ini,sol));		// Vérif sur le systeme de départ
 	
 	// Vérifications (Gauss)
-	assert(verif_sol(&s_ini,sol_g));
+	//assert(verif_sol(&s_ini,sol_g));
 	
 	// TODO : Vérifications pour Gauss dans Z/pZ...
-	//assert(verif_sol_zpz(&s_zpzm,sol_zpz,p));
+	//assert(verif_sol_zpz(&s_zpz,sol_zpz,p));
 	// ATTENTION, TEST CI-DESSUS PAS OK
 	
 	// Essai d'exécution de Gauss sur des Z/pZ en parallèle
-	//test_zpz_multi(&s_zpzm,n,8,state);
+	test_zpz_multi(&s_zpzm,n,8,state);
 	
 	// Suppression des objets utilisés
 	for(int i = 0;i < n;i++){
