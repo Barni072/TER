@@ -19,38 +19,89 @@ int zpz_add(int x,int y,int p){
 }
 int zpz_sub(int x,int y,int p){
 	int res = x - y;
-	if(res <= 0) res += p;
+	if(res < 0) res += p;
 	//Alternative : res = res + p*(res <= 0);		// Plus tard
 	assert((0 <= res) && (res < p));
 	return res;
 }
 int zpz_mul(int x,int y,int p){
-	int res = x * y;
-	res = res % p;	// Ce truc n'est pas le modulo...
-	if(res <= 0) res += p;	// Au secours
+	long int lres = (long int)x * (long int)y;	// On a besoin d'un long int ici, sinon les calculs cassent
+	int res = lres % p;	// Attention, % n'est pas excatement le modulo
+	if(res < 0) res += p;	// Au secours
+	//fprintf(stderr,"%d %d %d %ld %d\n",x,y,res,lres,p);
 	assert((0 <= res) && (res < p));
 	return res;
 }
-int zpz_inv(int x,int p){ 	// ÉCLATÉ AU SOL (et à implémenter sans GMP...)
-	mpz_t xm,pm,resm;
-	mpz_init_set_si(xm,x);
-	mpz_init_set_si(pm,p);
-	mpz_init(resm);
-	mpz_invert(resm,xm,pm);		// Problème ici
-	//assert(mpz_invert(resm,xm,pm) != 0);
-	mpz_out_str(stderr,10,xm);
-	fputc(' ',stderr);
-	mpz_out_str(stderr,10,pm);
-	fputc(' ',stderr);
-	mpz_out_str(stderr,10,resm);
-	fputc('\n',stderr);
-	int res = mpz_get_si(resm);
-	mpz_clear(xm);
-	mpz_clear(pm);
-	mpz_clear(resm);
-	fprintf(stderr,"%d %d %d\n",x,p,res);
-	assert(zpz_mul(x,res,p) == 1);	// Pas bon du tout
+
+// Applique l'algorithme d'Euclide étendu à a et b (compris entre 0 et p-1)
+// Calcule le PGCD de a et b, et une relation de Bézout : a*u + b*v = pgcd
+// On a |u| <= a/(2*pgcd) et |v| <= b/(2*pgcd)
+// Si l'on n'est pas intéressé par une partie du résultat, on peut mettre des pointeurs nuls pour pgcd, u ou v
+void euclide_etendu(int* pgcd,int* u,int* v,int a,int b){
+	// Initialisation (avec juste 6 variables plutôt que 3 listes)
+	int r_a = a;
+	int r_b = b;
+	int u_a = 1;
+	int u_b = 0;
+	int v_a = 0;
+	int v_b = 1;
+	int q,r_new,u_new,v_new;
+	while(r_b != 0){
+		// Calculs		(Dans Z OK ?)
+		q = r_a/r_b;	// Division entière OK ?
+		r_new = r_a - r_b*q;
+		u_new = u_a - u_b*q;
+		v_new = v_a - v_b*q;
+		// Passage à l'étape suivante
+		r_a = r_b;
+		u_a = u_b;
+		v_a = v_b;
+		r_b = r_new;
+		u_b = u_new;
+		v_b = v_new;
+	}
+	// Résultats
+	if(pgcd != NULL) *pgcd = r_a;
+	if(u != NULL) *u = u_a;
+	if(v != NULL) *v = v_a;
+	return;
+}
+
+// Calcule le PGCD de a et b
+int pgcd(int a,int b){
+	int res;
+	euclide_etendu(&res,NULL,NULL,a,b);
 	return res;
+}
+
+// Calcule l'inverse de x modulo p
+int zpz_inv(int x,int p){
+	//int pgcd;	// DEBUG, à terme on mettre un NULL à sa place
+	int u;		// On veut essentiellement renvoyer u, mais on veut quand même qu'il soit positif
+	//euclide_etendu(&pgcd,&u,NULL,x,p);
+	euclide_etendu(NULL,&u,NULL,x,p);
+	//assert(pgcd == 1);	// DEBUG
+	if(u < 0) u += p;
+	//assert((u >= 0) && (u < p));	// DEBUG
+	//fprintf(stderr,"%d %d %d\n",x,u,p);	// DEBUG
+	//assert(zpz_mul(x,u,p) == 1);	// DEBUG
+	return u;
+}
+
+int chinois(int x1,int x2,int p1,int p2){	// À TESTER
+	int pgcd;	// DEBUG (?)
+	int u,v;
+	euclide_etendu(&pgcd,&u,&v,p1,p2);	// DEBUG
+	//euclide_etendu(NULL,&u,&v,x1,x2);
+	int res = (x1*p2*v + x2*p1*u)%(p1*p2);
+	if(res >= 0) return res;
+	else return res+(p1*p2);
+}
+
+int chinois_uv_connus(int x1,int x2,int p1,int p2,int u,int v){	// À TESTER
+	int res = (x1*p2*v + x2*p1*u)%(p1*p2);
+	if(res >= 0) return res;
+	else return res+(p1*p2);
 }
 
 void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,int p){
@@ -92,7 +143,7 @@ void ecrit_coeff_zpz(syst_zpz* s,int i,int j,int n){
 }
 
 void affiche_syst_zpz(syst_zpz* s,FILE* f){
-	//fprintf(f,"p = %d\n",s->p);	// Utile ?
+	//fprintf(f,"p = %d\n",s->p);	// Inutile
 	int n = s->n;
 	for(int i = 0;i < n;i++){
 		// Affichage d'une ligne de coeffs
@@ -107,8 +158,9 @@ void affiche_syst_zpz(syst_zpz* s,FILE* f){
 
 // Vérifie si sol est une solution de s dans Z/pZ
 // Les coefficients de s doivent être compris entre 0 et p-1
-bool verif_sol_zpz(syst_zpz* s,int* sol,int p){
+bool verif_sol_zpz(syst_zpz* s,int* sol){
 	int n = s->n;
+	int p = s->p;
 	bool res = true;
 	int ij,som;
 	for(int i = 0; i < n;i++){
@@ -129,8 +181,9 @@ bool verif_sol_zpz(syst_zpz* s,int* sol,int p){
 
 // Échelonne le système s dans Z/pZ, avec l'algorithme de Gauss
 // Les coefficients de s doivent être compris entre 0 et p-1
-void zpz_gauss(syst_zpz* s,int p){
+void zpz_gauss(syst_zpz* s){
 	int n = s->n;
+	int p = s->p;
 	int ivp,a,b,c;
 	// Échelonne le système
 	for(int k = 0;k < n;k++){
@@ -153,8 +206,9 @@ void zpz_gauss(syst_zpz* s,int p){
 
 // Copie dans sol la solution du système préalablement échelonné s
 // Les coefficients de s doivent être compris entre 0 et p-1
-void zpz_sol_syst_ech(int* sol,syst_zpz* s,int p){
-	int n = s -> n;
+void zpz_sol_syst_ech(int* sol,syst_zpz* s){
+	int n = s->n;
+	int p = s->p;
 	for(int k = n-1;k >= 0;k--){
 		//lit_coeff(sol[k],s,k,n);
 		sol[k] = lit_coeff_zpz(s,k,n);
@@ -173,25 +227,15 @@ void zpz_sol_syst_ech(int* sol,syst_zpz* s,int p){
 }
 
 // Écrit dans sol la solution du systeme s dans Z/pZ, en travaillant directement sur s
-void zpz(int* sol,syst_zpz* s,int p){
-	zpz_gauss(s,p);
-	zpz_sol_syst_ech(sol,s,p);
+void zpz(int* sol,syst_zpz* s){
+	zpz_gauss(s);
+	zpz_sol_syst_ech(sol,s);
 	return;
 }
 
-// Écrit dans sol la solution du système s dans Z/pZ, sans modifier s
-// (sol, s et p sont "contenus" dans *a)
-/*void* zpz_multi(void* a_){
+// Fait pareil fonction que la précédente (en fait, appelle carrément la fonction prédcédente), mais dans un format que pthread_create accepte
+void* zpz_thrd(void* a_){
 	zpz_args* a = (zpz_args*)a_;
-	systeme s_zpz;
-	init_copie_systeme_zpz(&s_zpz,a->s,a->p);	// Faire cette étape avant, sinon ça a l'air d'échouer sur le 2ème thread
-		{fprintf(stderr,"p = ");
-		mpz_out_str(stderr,10,a->p);
-		fputc('\n',stderr);}	// DEBUG
-	zpz_gauss(&s_zpz,a->p);
-	zpz_sol_syst_ech(a->sol,&s_zpz,a->p);
-	assert(verif_sol_zpz(&s_zpz,a->sol,a->p));	// Test éclaté car les coeffs de s ne sont pas nécessairement entre 0 et p-1
-	assert(verif_sol_zpz(a->s,a->sol,a->p));		// Test mieux, on l'enlèvera plus tard...
-	detruit_systeme(&s_zpz);
+	zpz((a->sol),&(a->s));	
 	return NULL;
-}*/
+}
