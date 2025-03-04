@@ -23,19 +23,6 @@ void detruit_systeme(systeme* s){
 	free(s->t);
 }
 
-// Copie le système ssrc sur le système sdest (qui doit déjà avoir été initialisé)
-// En pratique, on utilisera probablement surtout init_copie_systeme
-void copie_systeme(systeme* sdest,systeme* ssrc){
-	int n = ssrc->n;
-	int m = ssrc->m;
-	sdest->n = n;
-	sdest->m = m;
-	for(int k = 0;k < n*m;k++){
-		mpz_set(sdest->t[k],ssrc->t[k]);
-	}
-	return;
-}
-
 // Initialise le système sdest, et en fait une copie du système ssrc
 void init_copie_systeme(systeme* sdest,systeme* ssrc){
 	int n = ssrc->n;
@@ -64,27 +51,24 @@ void ecrit_coeff(systeme* s,int i,int j,mpz_t n){
 }
 
 // Affiche un système dans le terminal, pour l'instant de façon matricielle et très moche
-void affiche_systeme(systeme* s){
+void affiche_systeme(systeme* s,FILE* f){
 	int n = s->n;
 	//int m = s->m;		// Pas besoin, on s'intéresse ici seulement aux coeffs du "1er membre" donc le nombre de lignes suffit
 	mpz_t k;
 	mpz_init(k);
-	//fprintf(stdout,"Taille : %d\n",n);	 // Cette information n'est pas très utile
 	for(int i = 0;i < n;i++){
 		// Affichage d'une ligne de coeffs
 		for(int j = 0;j < n;j++){
 			lit_coeff(k,s,i,j);
-			//fprintf(stdout,"%d ",mpz_get_si(k));
-			mpz_out_str(stdout,10,k);
-			fputc(' ',stdout);
+			mpz_out_str(f,10,k);
+			fputc(' ',f);
 		}
 		// Affichage d'un coeff du second membre, puis passage à la ligne suivante
 		lit_coeff(k,s,i,n);
-		//fprintf(stdout,"  %d\n",mpz_get_si(k));
-		fputc(' ',stdout);
-		fputc(' ',stdout);
-		mpz_out_str(stdout,10,k);
-		fputc('\n',stdout);
+		fputc(' ',f);
+		fputc(' ',f);
+		mpz_out_str(f,10,k);
+		fputc('\n',f);
 	}
 	mpz_clear(k);
 	return;

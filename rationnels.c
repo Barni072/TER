@@ -7,8 +7,8 @@
 
 // Initialisation et destruction
 void rat_init(rationnel* x){
-	*x = malloc(sizeof(struct s_rationnel));	// x est ici un pointeur vers un pointeur vers un struct s_rationnel, c'est potentiellement douteux
-	// Valeurs par défaut choisies un peu au pif, juste pour éviter que le dénominateur soit nul
+	*x = malloc(sizeof(struct s_rationnel));
+	// Par défaut, x est initialisé à 1 (et surtout, son dénominateur est non nul)
 	mpz_init_set_ui((*x)->p,0);
 	mpz_init_set_ui((*x)->q,1);
 	return;
@@ -16,7 +16,7 @@ void rat_init(rationnel* x){
 void rat_clear(rationnel* x){
 	mpz_clear((*x)->p);
 	mpz_clear((*x)->q);
-	free(*x);	// Même remarque que pour rat_init, x est un pointeur vers un pointeur
+	free(*x);
 	return;
 }
 
@@ -69,23 +69,22 @@ void rat_set_si(rationnel x,long int n){	// !
 }
 
 // Affiche le numérateur, le dénominateur et une approximation flottante du rationnel x
-// L'estimation est potentiellement foireuse si le numérateur et le dénominateur sont trop grands
-void rat_aff(rationnel x){
-	long int p = mpz_get_si(x->p);
-	unsigned long int q = mpz_get_ui(x->q);
-	double esti = ((double)p/(double)q);
-	//fprintf(stdout,"Numérateur : %d\nDénominateur : %d\nApproximation : %.4f\n",p,q,esti);
-	fprintf(stdout,"Numérateur : ");
-	mpz_out_str(stdout,10,x->p);
-	fprintf(stdout,"\nDénominateur : ");
-	mpz_out_str(stdout,10,x->q);
-	fprintf(stdout,"\nApproximation : %.8f\n"),esti;
+void rat_aff(rationnel x,FILE* f){
+	//long int p = mpz_get_si(x->p);
+	//unsigned long int q = mpz_get_ui(x->q);
+	//double esti = ((double)p/(double)q);
+	fprintf(f,"Numérateur : ");
+	mpz_out_str(f,10,x->p);
+	fprintf(f,"\nDénominateur : ");
+	mpz_out_str(f,10,x->q);
+	//fprintf(f,"\nApproximation : %f\n"),esti;		// Foireux, semble toujours afficher 0 -> recherches à faire
+	fputc('\n',f);
 	return;
 }
 
 // Opérations de base sur les rationnels (somme, produit, opposé, inverse, produit avec un entier, division par un entier) :
 // Remplace res par le résultat de l'opération (sur x et éventuellement y) voulue
-// res ne doit pas être l'une des opérandes ! (pas clair)
+// Un seul rationnel ne peut pas à la fois servir de résultat et d'opérande
 void rat_add(rationnel res,rationnel x,rationnel y){
 	mpz_mul(res->p,x->p,y->q);
 	mpz_addmul(res->p,y->p,x->q);
@@ -155,7 +154,7 @@ void rat_div_ent(rationnel res,rationnel x,mpz_t n){
 	}else{	// n < 0	// On veut que x->q reste positif
 		mpz_neg(res->p,x->p);
 		mpz_mul(res->q,x->q,n);
-		mpz_neg(res->q,res->q);		// Cette opération est-elle parfaitement licite ?
+		mpz_neg(res->q,res->q);
 	}
 	rat_norm(res);
 	return;

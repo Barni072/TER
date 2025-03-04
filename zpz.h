@@ -5,22 +5,35 @@
 #include <stdbool.h>
 #include "systemes.h"
 
-// Argument de zpz_multi (nécessaire à cause de pthread_create)
-struct s_args{
-	mpz_t* sol;
-	systeme* s;
-	mpz_t p;
+// Structure de système à coefficients dans Z/pZ
+struct s_syst_zpz{
+	int n;	// Nombre de lignes
+	int m;	// Nombre de colonnes (m = n+1 en pratique)
+	int p;	// Modulo
+	int* t;	// Tableau contenant les coefficients
 };
-typedef struct s_args zpz_args;
+typedef struct s_syst_zpz syst_zpz;
 
-//void zpz_add(mpz_t res,mpz_t x,mpz_t y,mpz_t p);
-//void zpz_sub(mpz_t res,mpz_t x,mpz_t y,mpz_t p);
-//void zpz_mul(mpz_t res,mpz_t x,mpz_t y,mpz_t p);
-//void init_copie_systeme_zpz(systeme* sdest,systeme* ssrc,mpz_t p);
-bool verif_sol_zpz(systeme* s,mpz_t* sol,mpz_t p);
-//void zpz_gauss(systeme* s,mpz_t p);
-//void zpz_sol_syst_ech(systeme* s,mpz_t* sol,mpz_t p);
-void zpz_sans_copie(mpz_t* sol,systeme* s,mpz_t p);
-void* zpz_multi(void* a_);	// a_ est en fait un pointeur vers un zpz_args
+// Argument de zpz_multi (nécessaire à cause de pthread_create)
+/*struct s_args{
+	syst_zpz* s;
+	int* sol
+};
+typedef struct s_args zpz_args;*/
+
+//int zpz_add(int x,int y,int p);
+//int zpz_sub(int x,int y,int p);
+//int zpz_mul(int x,int y,int p);
+//int zpz_inv(int x,int p);
+void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,int p);
+void detruit_syst_zpz(syst_zpz* s);
+//int lit_coeff_zpz(syst_zpz* s,int i,int j);
+//void ecrit_coeff_zpz(syst_zpz* s,int i,int j,int n);
+void affiche_syst_zpz(syst_zpz* s,FILE* f);
+bool verif_sol_zpz(syst_zpz* s,int* sol,int p);
+//void zpz_gauss(syst_zpz* s,int p);
+//void zpz_sol_syst_ech(syst_zpz* s,int* sol,int p);
+void zpz(int* sol,syst_zpz* s,int p);
+//void* zpz_multi(void* a_);	// a_ est en fait un pointeur vers un zpz_args
 
 #endif
