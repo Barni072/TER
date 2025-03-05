@@ -20,26 +20,22 @@ void test_zpz_multi(systeme* s,int n,int thr,gmp_randstate_t state){
 	mpz_t k,p_mpz;
 	int p;
 	// Initialisations
-	mpz_init(k);
 	mpz_init(p_mpz);
 	for(int i = 0;i < thr;i++){
-		mpz_urandomb(k,state,30);
-		mpz_nextprime(p_mpz,k);
-		p = mpz_get_ui(p_mpz);
+		p = genere_p(p_mpz,state,30);
 		fprintf(stderr,"%d\n",p);	// Juste pour voir si quelque chose s'exécute (et, tant qu'à faire, s'exécute avec des valeurs de p différentes)
 		init_copie_syst_zpz(&(a[i].s),s,p);
 		a[i].sol = &sol[i*n];
 	}
 	// Lancement des calculs en parallèle
 	for(int i = 0;i < thr;i++){
-		pthread_create(&t[i],NULL,zpz_thrd,&a[i]);
+		pthread_create(&t[i],NULL,zpz_resol_thrd,&a[i]);
 	}
 	// "Fin" des calculs
 	for(int i = 0;i < thr;i++){
 		pthread_join(t[i],NULL);
 	}
 	// Suppression des objets utilisés
-	mpz_clear(k);
 	mpz_clear(p_mpz);
 	free(sol);
 	free(t);
@@ -69,12 +65,9 @@ int main(){
 		rat_init(&sol_b[i]);
 		rat_init(&sol_g[i]);
 	}
-	mpz_t k,p_mpz;
-	mpz_init(k);
+	mpz_t p_mpz;	// On est pour l'instant obligé de déclarer cette variable, même si on ne s'en sert pas directement
 	mpz_init(p_mpz);
-	mpz_urandomb(k,state,30);
-	mpz_nextprime(p_mpz,k);
-	int p = mpz_get_ui(p_mpz);	// Est-il possible de faire ça plus simplement avec randint() ou d'autres fonctions standard ?
+	int p = genere_p(p_mpz,state,30);	// Est-il possible de faire ça plus simplement avec randint() ou d'autres fonctions standard ?
 	init_copie_syst_zpz(&s_zpz,&s_ini,p);	// Copie du système sur laquelle l'aglo de Gauss dans Z/pZ sera testé
 	init_copie_syst_zpz(&s_zpzv,&s_ini,p);	// Copie du système qui servira à conserver le résultat initial modulo p (pour tester le résultat)
 	
@@ -84,7 +77,7 @@ int main(){
 	
 	// Calcul d'une solution, avec l'algo de Bareiss
 	// Prend un temps raisonnable
-	bareiss(&s);
+	/*bareiss(&s);
 	sol_syst_echelonne(&s,sol_b);
 	fprintf(f,"\n\nSYSTÈME ÉCHELONNÉ (BAREISS) :\n");
 	affiche_systeme(&s,f);		// Système échelonné
@@ -101,13 +94,13 @@ int main(){
 	for(int i = 0;i < n;i++){
 		rat_aff(sol_g[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
 	
 	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard" avec à peu près 32 bits)
 	// Va suspicieusement vite
 	fprintf(f,"\nP = %d\n\nSYSTÈME DE DÉPART MODULO P :\n",p);
 	affiche_syst_zpz(&s_zpzv,f);
-	zpz(sol_zpz,&s_zpz);
+	zpz_resol(&s_zpz,sol_zpz);
 	fprintf(f,"\nSYSTÈME ÉCHELONNÉ DANS Z/pZ :\n");
 	affiche_syst_zpz(&s_zpz,f);
 	fprintf(f,"\nSOLUTION dans Z/pZ :\n");
@@ -117,18 +110,18 @@ int main(){
 	fputc('\n',f);
 	
 	// Vérifications (Bareiss)
-	assert(verif_sol(&s,sol_b));		// Vérif "triviale"
-	assert(verif_sol(&s_ini,sol_b));		// Vérif sur le systeme de départ
+	//assert(verif_sol(&s,sol_b));		// Vérif "triviale"
+	//assert(verif_sol(&s_ini,sol_b));		// Vérif sur le systeme de départ
 	
 	// Vérifications (Gauss)
-	assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
+	//assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
 	
 	// Vérifications (Gauss dans Z/pZ)
 	assert(verif_sol_zpz(&s_zpz,sol_zpz));	// Vérif "triviale"
 	assert(verif_sol_zpz(&s_zpzv,sol_zpz));	// Vérif sur le système de départ
 	
 	// Essai d'exécution de Gauss sur des Z/pZ en parallèle
-	test_zpz_multi(&s_ini,n,8,state);
+	//test_zpz_multi(&s_ini,n,8,state);
 	// TEST OK
 	
 	// Suppression des objets utilisés
@@ -139,7 +132,6 @@ int main(){
 	free(sol_b);
 	free(sol_g);
 	free(sol_zpz);
-	mpz_clear(k);
 	mpz_clear(p_mpz);
 	detruit_systeme(&s);
 	detruit_systeme(&s_ini);

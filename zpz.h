@@ -27,8 +27,6 @@ typedef struct s_args zpz_args;
 //void euclide_etendu(int* pgcd,int* u,int* v,int a,int b);
 //int pgcd(int a,int b);
 //int zpz_inv(int x,int p);
-//int chinois(int x1,int x2,int p1,int p2);
-//int chinois_uv_connus(int x1,int x2,int p1,int p2,int u,int v);
 void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,int p);
 void detruit_syst_zpz(syst_zpz* s);
 //int lit_coeff_zpz(syst_zpz* s,int i,int j);
@@ -37,7 +35,10 @@ void affiche_syst_zpz(syst_zpz* s,FILE* f);
 bool verif_sol_zpz(syst_zpz* s,int* sol);
 //void zpz_gauss(syst_zpz* s);
 //void zpz_sol_syst_ech(syst_zpz* s,int* sol);
-void zpz(int* sol,syst_zpz* s);
-void* zpz_thrd(void* a_);	// a_ est en fait un pointeur vers un zpz_args
+void zpz_resol(syst_zpz* s,int* sol);
+void* zpz_resol_thrd(void* a_);	// a_ est en fait un pointeur vers un zpz_args
+int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b);
+//bool sol_egales(rationnel* sol1,rationnel* sol2,int n);
+void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b);
 
 #endif
