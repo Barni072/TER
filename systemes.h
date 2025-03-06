@@ -19,7 +19,7 @@ void init_copie_systeme(systeme* sdest,systeme* ssrc);
 void lit_coeff(mpz_t res,systeme* s,int i,int j);
 void ecrit_coeff(systeme* s,int i,int j,mpz_t n);
 void affiche_systeme(systeme* s,FILE* f);
-//bool est_echelonne(systeme* s);		// Ne sert que dans sol_syst_echelonne
+//bool est_echelonne(systeme* s);
 void sol_syst_echelonne(systeme* s, rationnel* sol);
 bool verif_sol(systeme* s,rationnel* sol);
 

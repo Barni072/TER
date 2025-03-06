@@ -19,7 +19,7 @@ void bareiss(systeme* s){
 	for(int k = 0;k < n-1;k++){
 		if(k == 0) mpz_set_si(d,1);
 		else lit_coeff(d,s,k-1,k-1);
-		//assert(mpz_sgn(d) != 0);		// Pas propre, détecte les pivots nuls
+		assert(mpz_sgn(d) != 0);		// Pas propre, détecte les pivots nuls
 		lit_coeff(p,s,k,k);		
 		// Pour chaque pivot, on va modifier tous les coeffs "en bas à droite" du pivot, y compris ceux dans le second membre
 		for(int i = k+1;i < n;i++){
@@ -29,16 +29,12 @@ void bareiss(systeme* s){
 				lit_coeff(kj,s,k,j);
 				mpz_mul(e,ij,p);
 				mpz_submul(e,ik,kj);
-				assert(mpz_divisible_p(e,d) != 0);	// DEBUG/VÉRIF
 				mpz_divexact(ij,e,d);
 				ecrit_coeff(s,i,j,ij);
 			}
 			mpz_set_si(e,0);
 			ecrit_coeff(s,i,k,e);
 		}
-		// DEBUG, sera enlevé :
-		//fprintf(stdout, "k = %d\n", k);
-		//affiche_systeme(s);
 	}
 	mpz_clear(d);
 	mpz_clear(p);

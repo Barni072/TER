@@ -140,9 +140,8 @@ bool verif_sol(systeme* s,rationnel* sol){
 		rat_set_ent(som,zero);
 		for(int j = 0;j < n;j++){
 			lit_coeff(coeff,s,i,j);
-			//rat_addmul(s,coeff,sol[j]);	// On n'a pas implémenté de rat_addmul, c'est ballot
 			rat_mul_ent(tmp1,sol[j],coeff);
-			rat_add(tmp2,som,tmp1);	// Car "rat_add(s,s,tmp1);" foirerait
+			rat_add(tmp2,som,tmp1);
 			rat_set(som,tmp2);
 		}
 		// Comparaison avec le coeff du second membre :
