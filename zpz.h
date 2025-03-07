@@ -39,6 +39,8 @@ void zpz_resol(syst_zpz* s,int* sol);
 void* zpz_resol_thrd(void* a_);	// a_ est en fait un pointeur vers un zpz_args
 int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b);
 //bool sol_egales(rationnel* sol1,rationnel* sol2,int n);
+void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v);
+//void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b);
 void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b);
 
 #endif

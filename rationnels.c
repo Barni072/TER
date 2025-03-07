@@ -160,7 +160,6 @@ void rat_div_ent(rationnel res,rationnel x,mpz_t n){
 	return;
 }
 
-// MANIFESTEMENT CASSÉ
 bool rat_comp(rationnel x,rationnel y){
 	return ((mpz_cmp(x->p,y->p) == 0) && (mpz_cmp(x->q,y->q) == 0));
 }
