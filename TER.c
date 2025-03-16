@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <gmp.h>
-#include <pthread.h>
 #include <time.h>
 #include "rationnels.h"
 #include "systemes.h"
@@ -11,46 +10,17 @@
 #include "gauss_sys_rat.h"
 #include "io.h"
 #include "zpz.h"
-
-void test_zpz_multi(systeme* s,int n,int thr,gmp_randstate_t state){
-	// Déclarations
-	int* sol = malloc(n * thr * sizeof(int));
-	pthread_t* t = malloc(thr * sizeof(pthread_t));
-	zpz_args* a = malloc(thr * sizeof(zpz_args));
-	mpz_t k,p_mpz;
-	int p;
-	// Initialisations
-	mpz_init(p_mpz);
-	for(int i = 0;i < thr;i++){
-		p = genere_p(p_mpz,state,30);
-		fprintf(stderr,"%d\n",p);	// Juste pour voir si quelque chose s'exécute (et, tant qu'à faire, s'exécute avec des valeurs de p différentes)
-		init_copie_syst_zpz(&(a[i].s),s,p);
-		a[i].sol = &sol[i*n];
-	}
-	// Lancement des calculs en parallèle
-	for(int i = 0;i < thr;i++){
-		pthread_create(&t[i],NULL,zpz_resol_thrd,&a[i]);
-	}
-	// "Fin" des calculs
-	for(int i = 0;i < thr;i++){
-		pthread_join(t[i],NULL);
-	}
-	// Suppression des objets utilisés
-	mpz_clear(p_mpz);
-	free(sol);
-	free(t);
-	free(a);
-	return;
-}
+#include "zpz_thrd.h"
 
 int main(){
 	// Initialisation
 	FILE* f = stdout;
+	int thr = 8;
 	gmp_randstate_t state;
 	gmp_randinit_default(state);
 	gmp_randseed_ui(state,time(NULL));
 	//ecrit_fichier_au_pif("systeme2.txt",25,state,512);		// Les résultats dépassent du terminal
-	ecrit_fichier_au_pif("systeme2.txt",8,state,64);
+	ecrit_fichier_au_pif("systeme2.txt",10,state,128);
 	systeme s,s_ini;
 	syst_zpz s_zpz,s_zpzv;
 	//init_lit_systeme(&s,"systeme.txt");
@@ -61,15 +31,17 @@ int main(){
 	rationnel* sol_b = malloc(n*sizeof(rationnel));	// Contiendra la solution donnée par l'algorithme de Bareiss
 	rationnel* sol_g = malloc(n*sizeof(rationnel));	// Contiendra la solution donnée par l'algorithme de Gauss
 	rationnel* sol_m = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire
+	rationnel* sol_mp = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire
 	int* sol_zpz = malloc(n*sizeof(int));		// Contiendra la solution donnée par l'algorithme de Gauss dans Z/pZ
 	for(int i = 0;i < n;i++){
 		rat_init(&sol_b[i]);
 		rat_init(&sol_g[i]);
 		rat_init(&sol_m[i]);
+		rat_init(&sol_mp[i]);
 	}
-	mpz_t p_mpz;	// On est pour l'instant obligé de déclarer cette variable, même si on ne s'en sert pas directement
+	mpz_t p_mpz;
 	mpz_init(p_mpz);
-	int p = genere_p(p_mpz,state,30);	// Est-il possible de faire ça plus simplement avec randint() ou d'autres fonctions standard ?
+	int p = genere_p(p_mpz,state,30);
 	init_copie_syst_zpz(&s_zpz,&s_ini,p);	// Copie du système sur laquelle l'aglo de Gauss dans Z/pZ sera testé
 	init_copie_syst_zpz(&s_zpzv,&s_ini,p);	// Copie du système qui servira à conserver le résultat initial modulo p (pour tester le résultat)
 	
@@ -91,16 +63,16 @@ int main(){
 	
 	// Calcul d'une solution, avec l'algo de Gauss
 	// Prend 3 plombes
-	fprintf(f,"\nSOLUTION (GAUSS) :\n");
+	/*fprintf(f,"\nSOLUTION (GAUSS) :\n");
 	gauss(&s_ini,sol_g);
 	for(int i = 0;i < n;i++){
 		rat_aff(sol_g[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
 	
 	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard" avec à peu près 32 bits)
-	// Va suspicieusement vite
-	fprintf(f,"\n\nSYSTÈME DE DÉPART MODULO P :\n(P = %d)\n",p);
+	// Va très vite
+	/*fprintf(f,"\n\nSYSTÈME DE DÉPART MODULO P :\n(P = %d)\n",p);
 	affiche_syst_zpz(&s_zpzv,f);
 	zpz_resol(&s_zpz,sol_zpz);
 	fprintf(f,"\nSYSTÈME ÉCHELONNÉ DANS Z/pZ :\n");
@@ -108,13 +80,22 @@ int main(){
 	fprintf(f,"\nSOLUTION dans Z/pZ :\n");
 	for(int i = 0;i < n;i++){
 		fprintf(f,"%d\n",sol_zpz[i]);
-	}
+	}*/
 	
-	// Calcul d'une solution par méthode modulaire (en prenant des nombres premiers d'au plus 30 bits
+	// Calcul d'une solution par méthode modulaire (en prenant des nombres premiers d'au plus 30 bits)
+	// Prend bien plus de temps que Bareiss
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE) :\n");
-	zpz(&s_ini,sol_m,state,30);
+	modulaire(&s_ini,sol_m,state,30);
 	for(int i = 0;i < n;i++){
 		rat_aff(sol_m[i],f);
+		fprintf(f,"\n");
+	}
+	
+	// Calcul d'une solution par méthode modulaire en parallèle
+	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE EN PARALLÈLE) :\n");
+	modulaire_thrd(&s_ini,sol_mp,state,30,thr);
+	for(int i = 0;i < n;i++){
+		rat_aff(sol_mp[i],f);
 		fprintf(f,"\n");
 	}
 	fputc('\n',f);
@@ -124,14 +105,17 @@ int main(){
 	assert(verif_sol(&s_ini,sol_b));		// Vérif sur le systeme de départ
 	
 	// Vérifications (Gauss)
-	assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
+	//assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
 	
 	// Vérifications (Gauss dans Z/pZ)
-	assert(verif_sol_zpz(&s_zpz,sol_zpz));	// Vérif "triviale"
-	assert(verif_sol_zpz(&s_zpzv,sol_zpz));	// Vérif sur le système de départ
+	//assert(verif_sol_zpz(&s_zpz,sol_zpz));	// Vérif "triviale"
+	//assert(verif_sol_zpz(&s_zpzv,sol_zpz));	// Vérif sur le système de départ
 	
 	// Vérification (méthode modulaire)
 	assert(verif_sol(&s_ini,sol_m));		// Vérif sur le système de départ
+	
+	// Vérification (méthode modulaire en parallèle)
+	//assert(verif_sol(&s_ini,sol_mp));		// Vérif sur le système de départ
 	
 	// Essai d'exécution de Gauss sur des Z/pZ en parallèle
 	//test_zpz_multi(&s_ini,n,8,state);
@@ -142,10 +126,12 @@ int main(){
 		rat_clear(&sol_b[i]);
 		rat_clear(&sol_g[i]);
 		rat_clear(&sol_m[i]);
+		rat_clear(&sol_mp[i]);
 	}
 	free(sol_b);
 	free(sol_g);
 	free(sol_m);
+	free(sol_mp);
 	free(sol_zpz);
 	mpz_clear(p_mpz);
 	detruit_systeme(&s);
@@ -153,24 +139,7 @@ int main(){
 	detruit_syst_zpz(&s_zpz);
 	detruit_syst_zpz(&s_zpzv);
 	gmp_randclear(state);
-	
-	
-	// TESTS
-	/*mpz_t r,v,a,b;
-	mpz_init(r);
-	mpz_init(v);
-	mpz_init_set_si(a,257);
-	mpz_init_set_si(b,42);
-	euclide_etendu_borne(r,v,a,b);
-	mpz_out_str(stderr,10,r);
-	fputc('\n',stderr);
-	mpz_out_str(stderr,10,v);
-	fputc('\n',stderr);
-	mpz_clear(r);
-	mpz_clear(v);
-	mpz_clear(a);
-	mpz_clear(b);
-	return 0;*/
+	return 0;
 }
 
 

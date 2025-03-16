@@ -199,13 +199,6 @@ void zpz_resol(syst_zpz* s,int* sol){
 	return;
 }
 
-// Fait pareil que la fonction précédente (en fait, appelle carrément la fonction prédcédente), mais dans un format que pthread_create accepte
-void* zpz_resol_thrd(void* a_){
-	zpz_args* a = (zpz_args*)a_;
-	zpz_resol(&(a->s),a->sol);	
-	return NULL;
-}
-
 // Génére un nombre premier aléatoire d'au plus b bits (en pratique, 30), donne sa valeur à p, et le renvoie aussi (en tant qu'int)
 int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b){
 	mpz_t k;
@@ -214,119 +207,80 @@ int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b){
 	mpz_nextprime(p,k);
 	int res = mpz_get_ui(p);
 	mpz_clear(k);
-	fprintf(stderr,"p = %d\n",res);		// DEBUG
 	return res;
 }
 
 bool sol_egales(rationnel* sol1,rationnel* sol2,int n){
 	bool res = true;
 	for(int i = 0;i < n;i++){
-		res = res && rat_comp(sol1[i],sol2[i]);;
-		//rat_aff(sol1[i],stderr);		// DEBUG
-		//rat_aff(sol2[i],stderr);		// DEBUG
+		res = res && rat_comp(sol1[i],sol2[i]);
 	}
 	return res;
 }
 
 // Calcule l'image réciproque de (x1,x2) (dans Z/(n1*n2)Z) par l'isomorphisme des restes chinois
 // Écrit le résultat dans res, et nécessite d'avoir déjà établi une relation de Bézout : n1*u + n2*v == 1
+// Fonctionne correctement si l'une des opérandes est aussi l'emplacement du résultat
 void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
 	mpz_t t1,t2,n1n2;
 	mpz_init_set(t1,x1);
 	mpz_init_set(t2,x2);
 	mpz_init(n1n2);
 	mpz_mul(n1n2,n1,n2);
-	//mpz_addmul(t1,n2,v);	// Non
-	//mpz_addmul(t2,n1,u);	// Non plus
 	mpz_mul(t1,t1,n2);
 	mpz_mul(t1,t1,v);
 	mpz_mul(t2,t2,n1);
 	mpz_mul(t2,t2,u);
 	mpz_add(res,t1,t2);
-	//if(mpz_cmp_ui(res,0) < 0) mpz_addmul(res,n1,n2);	// On veut un résultat entre O et n1*n2-1	// Inutile
-	mpz_fdiv_r(res,res,n1n2);	// Faire ça en 2 fois, avant et après l'addition ???
-	/*{		// TESTS
-		// (0 <= x1 < n1) && (0 <= x2 < n2) (semble OK)
-		assert(mpz_cmp_si(x1,0) >= 0);
-		assert(mpz_cmp_si(x2,0) >= 0);
-		assert(mpz_cmp(x1,n1) < 0);
-		assert(mpz_cmp(x2,n2) < 0);
-		// n1*u + n2*v == 1 (semble OK)
-		mpz_t b;
-		mpz_init(b);
-		mpz_mul(b,n1,u);
-		mpz_addmul(b,n2,v);
-		assert(mpz_cmp_si(b,1) == 0);
-		mpz_clear(b);
-		// 0 <= res < n1*n2 (semble OK)
-		mpz_mul(n1n2,n1,n2);
-		assert((mpz_cmp_si(res,0) >= 0) && (mpz_cmp(res,n1n2) < 0));
-		// (res mod n1 == x1) && (res mod n2 == x2) (semble OK)
-		mpz_t r1,r2;
-		mpz_init(r1);
-		mpz_init(r2);
-		mpz_fdiv_r(r1,res,n1);
-		mpz_fdiv_r(r2,res,n2);
-		mpz_out_str(stderr,10,r1);
-		fputc('\n',stderr);
-		mpz_out_str(stderr,10,x1);
-		fputc('\n',stderr);
-		mpz_out_str(stderr,10,r2);
-		fputc('\n',stderr);
-		mpz_out_str(stderr,10,x2);
-		fputc('\n',stderr);
-		assert(mpz_cmp(r1,x1) == 0);
-		assert(mpz_cmp(r2,x2) == 0);
-		mpz_clear(r1);
-		mpz_clear(r2);
-	}*/
+	mpz_fdiv_r(res,res,n1n2);
 	mpz_clear(t1);
 	mpz_clear(t2);
 	mpz_clear(n1n2);
 	return;
 }
 
+// Établit une relation de Bézout n1*u +n2*v == 1, et appelle la fonction précédente sur les n premières cases des tableaux res, x1 et x2
+void chinois_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2){
+	mpz_t u,v;
+	mpz_init(u);
+	mpz_init(v);
+	mpz_gcdext(NULL,u,v,n1,n2);	// NULL car le PGCD ne nous intéresse pas (il vaudra toujours 1)
+	for(int i = 0;i < n;i++){
+		chinois(res[i],x1[i],x2[i],n1,n2,u,v);
+	}
+	mpz_clear(u);
+	mpz_clear(v);
+	return;
+}
+
 // Une autre implémentation de l'algorithme d'Euclide étendu
 // S'arrête dès que le reste est plus petit que sqrt(a), et utilise des mpz_t
-// SEMBLE CASSÉ
+// Ne calcule que les rk et les vk (pas les uk)
 void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b){
-//void euclide_etendu_borne(mpz_t r,mpz_t u,mpz_t v,mpz_t a,mpz_t b){
-	int nb_iter = 0;	// DEBUG
 	// Initialisation
 	mpz_t r_b,r_new;
-	//mpz_t u_b,u_new;
 	mpz_t v_b,v_new;
 	mpz_t q,borne;
 	mpz_set(r,a);
 	mpz_init_set(r_b,b);
-	//mpz_set_si(u,1);
-	//mpz_init_set_si(u_b,0);
 	mpz_set_si(v,0);
 	mpz_init_set_si(v_b,1);
 	mpz_init(r_new);
-	//mpz_init(u_new);
 	mpz_init(v_new);
 	mpz_init(q);
 	mpz_init(borne);
 	mpz_sqrt(borne,a);
-	//mpz_out_str(stderr,10,a); fputc('\n',stderr);		// DEBUG
-	//mpz_out_str(stderr,10,borne); fputc('\n',stderr);	// DEBUG	// sqrt semble OK
 	while(mpz_cmp(r_b,borne) > 0){		// Tant que r_b > sqrt(a)
-		nb_iter++;	// DEBUG
 		// Calculs
 		mpz_fdiv_q(q,r,r_b);
 		mpz_set(r_new,r);
 		mpz_submul(r_new,r_b,q);
-		//mpz_set(u_new,u);
-		//mpz_submul(u_new,u_b,q);
 		mpz_set(v_new,v);
 		mpz_submul(v_new,v_b,q);
 		// Passage à l'étape suivante
 		mpz_set(r,r_b);
-		//mpz_set(u,u_b);
 		mpz_set(v,v_b);
 		mpz_set(r_b,r_new);
-		//mpz_set(u_b,u_new);
 		mpz_set(v_b,v_new);
 	}
 	// ATTENTION : le résultat souhaité est en fait [r_b et v_b] (et non [r et v])
@@ -336,8 +290,7 @@ void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b){
 	// TODO : réécrire cette fonction convenablement
 	
 	// DEBUG 
-	/*fprintf(stderr,"%d\n",nb_iter);
-	mpz_out_str(stderr,10,r);
+	/*mpz_out_str(stderr,10,r);
 	fputc(' ',stderr);
 	mpz_out_str(stderr,10,v);
 	fputc('\n',stderr);*/
@@ -346,8 +299,6 @@ void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b){
 	// Suppression des variables utilisées
 	mpz_clear(r_b);
 	mpz_clear(r_new);
-	//mpz_clear(u_b);
-	//mpz_clear(u_new);
 	mpz_clear(v_b);
 	mpz_clear(v_new);
 	mpz_clear(q);
@@ -356,7 +307,7 @@ void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b){
 }
 
 // Méthode modulaire de résolution du système [...]
-void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
+void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// INITIALISATION
 	int j = 1;		// DEBUG, nombre d'itérations effectuées
 	int n = s -> n;
@@ -365,7 +316,7 @@ void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	mpz_t* sol_zpz_m = malloc(n*sizeof(mpz_t));	// De même, pour la solution convertie en mpz
 	mpz_t* sol_tmp = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on va essayer de reconstruire une solution
 	mpz_t* sol_tmp_old = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on a essayé de reconstruire une solution à l'itération précédente
-	rationnel* sol_old = malloc(n*sizeof(rationnel));	// Emplacement du candidat de solution de l'itération précédente
+	rationnel* sol_old = malloc(n*sizeof(rationnel));	// Emplacement du candidat de solution de l'itération précédente (nécessaire pour s'arrêter quand on trouve la même solution 2 fois d'affilée)
 	mpz_t p_mpz,prod_old,prod,u,v;
 	int p;		// Nombre premier "en cours d'utilisation", version machine
 	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
@@ -408,7 +359,7 @@ void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// Destruction du syst_zpz, pour pouvoir le réutiliser (peu propre (?))
 	detruit_syst_zpz(&sz);
 	// BOUCLE PRINCIPALE
-	while(!sol_egales(sol,sol_old,n) && (j < 500)){		// Condition en plus temporaire
+	while(!sol_egales(sol,sol_old,n)){
 		j++;	// DEBUG
 		// "Choix" d'un nombre premier pour cette itération
 		p = genere_p(p_mpz,state,b);
@@ -426,15 +377,8 @@ void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 		for(int i = 0;i < n;i++){
 			mpz_set_si(sol_zpz_m[i],sol_zpz[i]);
 		}
-		// Calcul d'une relation de Bézout : u*p_mpz + v*prod_old == 1
-		mpz_gcdext(NULL,u,v,p_mpz,prod_old);	// NULL -> on ne veut pas le PGCD (qui vaut 1)
 		// Restes chinois avec les solutions précédentes
-		for(int i = 0;i < n;i++){
-			// sol_tmp[i] est dans Z/prodZ
-			// sol_zpz_m[i] est dans Z/pZ
-			// sol_tmp_old[i] est dans Z/prod_oldZ
-			chinois(sol_tmp[i],sol_zpz_m[i],sol_tmp_old[i],p_mpz,prod_old,u,v);
-		}
+		chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,p_mpz,prod_old);
 		// Construction modulaire d'un candidat solution
 		for(int i = 0;i < n;i++){
 			euclide_etendu_borne(u,v,prod,sol_tmp[i]);	// Ici, u devrait s'appeler r
@@ -447,12 +391,13 @@ void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 			}
 		}
 		// MàJ de prod_old
-		mpz_mul(prod_old,prod_old,p_mpz);
+		//mpz_mul(prod_old,prod_old,p_mpz);	// Pas nécessaire de faire ce calcul, on sait qu'on va se retrouver avec prod_old == prod à ce stade
+		mpz_set(prod_old,prod);	// Plus rapide
 		// Destruction du syst_zpz, pour pouvoir le réutiliser (peu propre (?))
 		detruit_syst_zpz(&sz);
 	}
 	fprintf(stderr,"Nombre d'itérations : %d\n\n",j);	// DEBUG
-	// SUPPRESSION DES OBJETS INUTILISÉS
+	// SUPPRESSION DES OBJETS UTILISÉS
 	for(int i = 0;i < n;i++){
 		mpz_clear(sol_zpz_m[i]);
 		mpz_clear(sol_tmp[i]);

@@ -14,13 +14,6 @@ struct s_syst_zpz{
 };
 typedef struct s_syst_zpz syst_zpz;
 
-// Argument de zpz_thrd (nécessaire à cause de pthread_create)
-struct s_args{
-	syst_zpz s;
-	int* sol;
-};
-typedef struct s_args zpz_args;
-
 //int zpz_add(int x,int y,int p);
 //int zpz_sub(int x,int y,int p);
 //int zpz_mul(int x,int y,int p);
@@ -36,11 +29,11 @@ bool verif_sol_zpz(syst_zpz* s,int* sol);
 //void zpz_gauss(syst_zpz* s);
 //void zpz_sol_syst_ech(syst_zpz* s,int* sol);
 void zpz_resol(syst_zpz* s,int* sol);
-void* zpz_resol_thrd(void* a_);	// a_ est en fait un pointeur vers un zpz_args
 int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b);
-//bool sol_egales(rationnel* sol1,rationnel* sol2,int n);
-void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v);
-//void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b);
-void zpz(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b);
+bool sol_egales(rationnel* sol1,rationnel* sol2,int n);
+//void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v);
+void chinois_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2);
+void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b);
+void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b);
 
 #endif

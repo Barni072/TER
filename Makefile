@@ -1,4 +1,4 @@
-OBJS = TER.o rationnels.o systemes.o bareiss.o gauss_sys_rat.o io.o zpz.o
+OBJS = TER.o rationnels.o systemes.o bareiss.o gauss_sys_rat.o io.o zpz.o zpz_thrd.o
 
 CC = gcc
 
