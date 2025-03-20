@@ -11,7 +11,7 @@ struct s_args1{
 };
 typedef struct s_args1 zpz_thrd_args;
 
-/*struct s_args2{
+struct s_args2{
 	int n;
 	mpz_t* res;
 	mpz_t* x1;
@@ -19,7 +19,7 @@ typedef struct s_args1 zpz_thrd_args;
 	mpz_t n1;
 	mpz_t n2;
 };
-typedef struct s_args2 chinois_n_thrd_args;*/
+typedef struct s_args2 chinois_n_thrd_args;
 
 //void* zpz_thrd(void* a_);	// a_ est en fait un pointeur vers un zpz_thrd_args
 //void* chinois_n_thrd(void* a_);	// a_ est en fait un pointeur vers un chinois_n_thrd_args

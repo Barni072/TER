@@ -15,8 +15,10 @@
 #define BAREISS
 //#define GAUSS
 //#define ZPZ
-#define MOD
-//#define MODP
+//#define MOD
+#define MOD_PARA
+#define MOD_HADA
+//#define MOD_HADA_PARA		// ?
 
 #define THR 8
 
@@ -35,16 +37,18 @@ int main(){
 	int n = s.n;		// Nombre de lignes
 	int m = s.m;		// Nombre de colonnes, en comptant le second membre (en pratique : m = n+1)
 	init_copie_systeme(&s_ini,&s);	// Copie qui servira à conserver le système initial, pour pouvoir tester notre solution à la fin (sera aussi donnée à l'algo de Gauss sur les rationnels et à zpz_thrd, car ils ne le modifieront pas)
-	rationnel* sol_b = malloc(n*sizeof(rationnel));	// Contiendra la solution donnée par l'algorithme de Bareiss
-	rationnel* sol_g = malloc(n*sizeof(rationnel));	// Contiendra la solution donnée par l'algorithme de Gauss
-	rationnel* sol_m = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire
-	rationnel* sol_mp = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire
+	rationnel* sol_b = malloc(n*sizeof(rationnel));		// Contiendra la solution donnée par l'algorithme de Bareiss
+	rationnel* sol_g = malloc(n*sizeof(rationnel));		// Contiendra la solution donnée par l'algorithme de Gauss
+	rationnel* sol_m = malloc(n*sizeof(rationnel));		// Contiendra la solution obtenue par méthode modulaire
+	rationnel* sol_mp = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version en parallèle)
+	rationnel* sol_mh = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec borne de Hadamard)
 	int* sol_zpz = malloc(n*sizeof(int));		// Contiendra la solution donnée par l'algorithme de Gauss dans Z/pZ
 	for(int i = 0;i < n;i++){
 		rat_init(&sol_b[i]);
 		rat_init(&sol_g[i]);
 		rat_init(&sol_m[i]);
 		rat_init(&sol_mp[i]);
+		rat_init(&sol_mh[i]);
 	}
 	mpz_t p_mpz;
 	mpz_init(p_mpz);
@@ -97,7 +101,7 @@ int main(){
 	
 #ifdef MOD
 	// Calcul d'une solution par méthode modulaire (en prenant des nombres premiers d'au plus 30 bits)
-	// Prend bien plus de temps que Bareiss
+	// Prend trop de temps, car la reconstruction d'une solution rationnelle est trop coûteuse et faite trop souvent
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE) :\n");
 	modulaire(&s_ini,sol_m,state,30);
 	for(int i = 0;i < n;i++){
@@ -106,12 +110,22 @@ int main(){
 	}
 #endif
 	
-#ifdef MODP
+#ifdef MOD_PARA
 	// Calcul d'une solution par méthode modulaire en parallèle
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE EN PARALLÈLE) :\n");
 	modulaire_thrd(&s_ini,sol_mp,state,30,THR);
 	for(int i = 0;i < n;i++){
 		rat_aff(sol_mp[i],f);
+		fprintf(f,"\n");
+	}
+#endif
+	
+#ifdef MOD_HADA
+	// Calcul d'une solution par méthode modulaire (alternative avec borne de Hadamard)
+	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE AVEC HADAMARD) :\n");
+	modulaire_hada(&s_ini,sol_mh,state,30);
+	for(int i = 0;i < n;i++){
+		rat_aff(sol_mh[i],f);
 		fprintf(f,"\n");
 	}
 #endif
@@ -139,9 +153,14 @@ int main(){
 	assert(verif_sol(&s_ini,sol_m));		// Vérif sur le système de départ
 #endif
 	
-#ifdef MODP
+#ifdef MOD_PARA
 	// Vérification (méthode modulaire en parallèle)
 	assert(verif_sol(&s_ini,sol_mp));		// Vérif sur le système de départ
+#endif
+	
+#ifdef MOD_HADA
+	// Vérification (méthode modulaire avec borne de Hadamard)
+	assert(verif_sol(&s_ini,sol_mh));
 #endif
 	
 	// Suppression des objets utilisés
@@ -150,11 +169,13 @@ int main(){
 		rat_clear(&sol_g[i]);
 		rat_clear(&sol_m[i]);
 		rat_clear(&sol_mp[i]);
+		rat_clear(&sol_mh[i]);
 	}
 	free(sol_b);
 	free(sol_g);
 	free(sol_m);
 	free(sol_mp);
+	free(sol_mh);
 	free(sol_zpz);
 	mpz_clear(p_mpz);
 	detruit_systeme(&s);

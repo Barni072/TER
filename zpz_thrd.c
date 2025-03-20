@@ -23,14 +23,14 @@ void* zpz_thrd(void* a_){
 }
 
 // Appelle chinois_n, et est fait pour être appelé par pthread_create
-/*void* chinois_n_thrd(void* a_){
+void* chinois_n_thrd(void* a_){
 	// Conversion des arguments
 	chinois_n_thrd_args* a = (chinois_n_thrd_args*) a_;
 	chinois_n(a->n,a->res,a->x1,a->x2,a->n1,a->n2);
 	return NULL;
-}*/
+}
 
-void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b,int thr){
+void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t bit,int thr){
 	// DÉCLARATIONS
 	int n = s -> n;
 	int j = 1; // DEBUG, nombre d'itérations effectuées
@@ -49,6 +49,7 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	rationnel* sol_old = malloc(n*sizeof(rationnel));	// Emplacement du candidat de solution de l'itération précédente (nécessaire pour s'arrêter quand on trouve la même solution 2 fois d'affilée)
 	pthread_t* thrd = malloc(sizeof(pthread_t)*thr);	// Threads
 	zpz_thrd_args* a = malloc(sizeof(zpz_thrd_args)*thr);	// Arguments de zpz_thrd
+	chinois_n_thrd_args* b = malloc(sizeof(chinois_n_thrd_args)*thr);	// Arguments de chinois_n_thrd_args (au plus la moitié serviront...)
 	
 	// INITIALISATIONS
 	mpz_init_set_si(prod,1);
@@ -58,6 +59,8 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	mpz_init(v);
 	for(int t = 0;t < thr;t++){
 		mpz_init(p_mpz[t]);
+		mpz_init(b[t].n1);
+		mpz_init(b[t].n2);
 	}
 	for(int i = 0;i < n;i++){
 		//mpz_init(sol_act[i]);
@@ -74,7 +77,7 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	// Ce qui suit n'a pas été mis en parallèle, car de précédents tests semblaient indiquer qu'on ne pouvait pas vraiment lire dans s en parallèle -> À RE-TESTER...
 	for(int t = 0;t < thr;t++){
 		// "Choix" d'un nombre premier
-		p[t] = genere_p(p_mpz[t],state,b);
+		p[t] = genere_p(p_mpz[t],state,bit);
 		// MàJ de prod
 		mpz_mul(prod,prod,p_mpz[t]);
 		// MàJ de prod_act
@@ -102,12 +105,47 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	}
 	mpz_set(prod_act,p_mpz[0]);
 	// Restes chinois pour obtenir une solution dans Z/prod_actZ
-	// Pour la première itération, il n'y a pas d'autres restes chinois à utiliser, et on peut donc mettre dirctement le résultat dans sol_tmp
+	// Pour la première itération, il n'y a pas d'autres restes chinois à utiliser, et on peut donc mettre directement le résultat dans sol_tmp
 	for(int t = 1;t < thr;t++){
 		chinois_n(n,sol_tmp,&(sol_zpz_m[t*n]),sol_tmp,p_mpz[t],prod_act);
 		mpz_mul(prod_act,prod_act,p_mpz[t]);
 	}
 	
+	// Alternative expérimentale et cassée
+	/*int pas = 1;
+	// "Pré-initialisation" des arguments
+	for(int t = 0;t < thr;t++){
+		mpz_set(b[t].n1,p_mpz[t]);
+	}
+	fprintf(stderr,"Hola\n");
+	while(pas/2 < thr){
+		pas = pas*2;
+		for(int t = 0;t < thr;t += pas){
+			b[t].n = n;
+			b[t].res = &sol_zpz_m[t*n];
+			b[t].x1 = &sol_zpz_m[t*n];
+			b[t].x2 = &sol_zpz_m[t*n + (n*pas/2)];
+			// b[t].n1 est à ce stade déjà correct		// TODO : le calculer ici ?
+			mpz_set(b[t].n2,b[t+pas/2].n1);
+		}
+		// Lancement des calculs
+		for(int t = 0;t < thr;t += pas){
+			pthread_create(&thrd[t],NULL,chinois_n_thrd,&b[t]);
+		}
+		// Fin des calculs
+		for(int t = 0;t < thr;t += pas){
+			pthread_join(thrd[t],NULL);
+		}
+		// MàJ des n1 pour la prochaine étape (on en fait 2 fois trop, mais c'est plus simple pour l'instant
+		for(int t = 0;t < thr;t += pas){
+			mpz_mul(b[t].n1,b[t].n1,b[t].n2);
+		}
+		fprintf(stderr,"%d\n",pas);
+	}
+	// Copie du résultat des restes chinois dabs sol_tmp
+	for(int i = 0;i < n;i++){
+		mpz_set(sol_tmp[i],sol_zpz_m[i]);
+	}*/
 	
 	
 	// Construction d'un candidat solution rationnel
@@ -137,7 +175,7 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 		}
 		for(int t = 0;t < thr;t++){
 			// "Choix" d'un nombre premier pour cette itération
-			p[t] = genere_p(p_mpz[t],state,b);
+			p[t] = genere_p(p_mpz[t],state,bit);
 			// MàJ de prod
 			mpz_mul(prod,prod,p_mpz[t]);
 			// MàJ de prod_act
@@ -193,6 +231,8 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	mpz_clear(v);
 	for(int t = 0;t < thr;t++){
 		mpz_clear(p_mpz[t]);
+		mpz_clear(b[t].n1);
+		mpz_clear(b[t].n2);
 	}
 	for(int i = 0;i < n;i++){
 		//mpz_clear(sol_act[i]);
@@ -213,5 +253,8 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	free(sol_old);
 	free(thrd);
 	free(a);
+	free(b);
 	return;
 }
+
+
