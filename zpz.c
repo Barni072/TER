@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <gmp.h>
+#include <time.h>
 #include "systemes.h"
 #include "zpz.h"
 
@@ -310,6 +311,10 @@ void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b){
 void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// INITIALISATION
 	int j = 1;		// DEBUG, nombre d'itérations effectuées
+	clock_t debut,fin;		// DEBUG
+	double zpz_resol_tps = 0.;
+	double chinois_tps = 0.;
+	double reconstr_tps = 0.;
 	int n = s -> n;
 	syst_zpz sz;	// On va initialiser/copier et détruire ce système à chaque itération
 	int* sol_zpz = malloc(n*sizeof(int));	// Emplacement de la solution dans Z/pZ que zpz_resol va calculer
@@ -338,12 +343,16 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	mpz_set_ui(prod_old,1);
 	// Calcul d'une solution dans Z/pZ
 	init_copie_syst_zpz(&sz,s,p);
+	debut = clock();	// DEBUG
 	zpz_resol(&sz,sol_zpz);
+	fin = clock();	// DEBUG
+	zpz_resol_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 	// Conversion de la solution en mpz_t, directement dans sol_tmp puisqu'il n'y a pas de chinoiserie à faire
 	for(int i = 0;i < n;i++){
 		mpz_set_si(sol_tmp[i],sol_zpz[i]);
 	}
 	// Construction modulaire d'un candidat solution
+	debut = clock();	// DEBUG
 	for(int i = 0;i < n;i++){
 		euclide_etendu_borne(u,v,prod,sol_tmp[i]);	// Ici, u devrait s'appeler r
 		if(mpz_cmp_si(v,0) < 0){	// v < 0
@@ -354,6 +363,8 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 			rat_set_pq(sol[i],u,v);
 		}
 	}
+	fin = clock();	// DEBUG
+	reconstr_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 	// MàJ de prod_old (on pourrait en fait l'initialiser ici, puisqu'on ne s'en sert pas avant)
 	mpz_set(prod_old,p_mpz);
 	// Destruction du syst_zpz, pour pouvoir le réutiliser (peu propre (?))
@@ -372,14 +383,21 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 		}
 		// Calcul d'une solution dans Z/pZ
 		init_copie_syst_zpz(&sz,s,p);
+		debut = clock();	//DEBUG
 		zpz_resol(&sz,sol_zpz);
+		fin = clock();	// DEBUG
+		zpz_resol_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 		// Conversion de la nouvelle solution en mpz_t
 		for(int i = 0;i < n;i++){
 			mpz_set_si(sol_zpz_m[i],sol_zpz[i]);
 		}
 		// Restes chinois avec les solutions précédentes
+		debut = clock();	// DEBUG
 		chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,p_mpz,prod_old);
 		// Construction modulaire d'un candidat solution
+		fin = clock();	// DEBUG
+		chinois_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
+		debut = clock();	// DEBUG
 		for(int i = 0;i < n;i++){
 			euclide_etendu_borne(u,v,prod,sol_tmp[i]);	// Ici, u devrait s'appeler r
 			if(mpz_cmp_si(v,0) < 0){	// v < 0
@@ -390,13 +408,16 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 				rat_set_pq(sol[i],u,v);
 			}
 		}
+		fin = clock();	// DEBUG
+		reconstr_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 		// MàJ de prod_old
 		//mpz_mul(prod_old,prod_old,p_mpz);	// Pas nécessaire de faire ce calcul, on sait qu'on va se retrouver avec prod_old == prod à ce stade
 		mpz_set(prod_old,prod);	// Plus rapide
 		// Destruction du syst_zpz, pour pouvoir le réutiliser (peu propre (?))
 		detruit_syst_zpz(&sz);
 	}
-	fprintf(stderr,"Nombre d'itérations : %d\n\n",j);	// DEBUG
+	//fprintf(stderr,"Nombre d'itérations : %d\n\n",j);	// DEBUG
+	fprintf(stderr,"Nombre d'itérations : %d\nTemps de résolution dans Z/pZ : %lf s\nTemps de restes chinois : %lf s\nTemps de recontruction rationnelle : %lf s\n\n",j,zpz_resol_tps,chinois_tps,reconstr_tps);	// DEBUG
 	// SUPPRESSION DES OBJETS UTILISÉS
 	for(int i = 0;i < n;i++){
 		mpz_clear(sol_zpz_m[i]);

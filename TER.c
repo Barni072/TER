@@ -12,15 +12,22 @@
 #include "zpz.h"
 #include "zpz_thrd.h"
 
+#define BAREISS
+//#define GAUSS
+//#define ZPZ
+#define MOD
+//#define MODP
+
+#define THR 8
+
 int main(){
 	// Initialisation
 	FILE* f = stdout;
-	int thr = 8;
 	gmp_randstate_t state;
 	gmp_randinit_default(state);
 	gmp_randseed_ui(state,time(NULL));
-	//ecrit_fichier_au_pif("systeme2.txt",25,state,512);		// Les résultats dépassent du terminal
-	ecrit_fichier_au_pif("systeme2.txt",10,state,128);
+	ecrit_fichier_au_pif("systeme2.txt",15,state,512);		// Les résultats dépassent du terminal
+	//ecrit_fichier_au_pif("systeme2.txt",6,state,64);
 	systeme s,s_ini;
 	syst_zpz s_zpz,s_zpzv;
 	//init_lit_systeme(&s,"systeme.txt");
@@ -49,6 +56,7 @@ int main(){
 	fprintf(f,"\n\nSYSTÈME DE DÉPART :\n");
 	affiche_systeme(&s_ini,f);		// Système de départ
 	
+#ifdef BAREISS
 	// Calcul d'une solution, avec l'algo de Bareiss
 	// Prend un temps raisonnable
 	fprintf(f,"\n\nSYSTÈME ÉCHELONNÉ (BAREISS) :\n");
@@ -60,19 +68,23 @@ int main(){
 		rat_aff(sol_b[i],f);
 		fprintf(f,"\n");
 	}
+#endif
 	
+#ifdef GAUSS
 	// Calcul d'une solution, avec l'algo de Gauss
 	// Prend 3 plombes
-	/*fprintf(f,"\nSOLUTION (GAUSS) :\n");
+	fprintf(f,"\nSOLUTION (GAUSS) :\n");
 	gauss(&s_ini,sol_g);
 	for(int i = 0;i < n;i++){
 		rat_aff(sol_g[i],f);
 		fprintf(f,"\n");
-	}*/
+	}
+#endif
 	
+#ifdef ZPZ
 	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard" avec à peu près 32 bits)
 	// Va très vite
-	/*fprintf(f,"\n\nSYSTÈME DE DÉPART MODULO P :\n(P = %d)\n",p);
+	fprintf(f,"\n\nSYSTÈME DE DÉPART MODULO P :\n(P = %d)\n",p);
 	affiche_syst_zpz(&s_zpzv,f);
 	zpz_resol(&s_zpz,sol_zpz);
 	fprintf(f,"\nSYSTÈME ÉCHELONNÉ DANS Z/pZ :\n");
@@ -80,8 +92,10 @@ int main(){
 	fprintf(f,"\nSOLUTION dans Z/pZ :\n");
 	for(int i = 0;i < n;i++){
 		fprintf(f,"%d\n",sol_zpz[i]);
-	}*/
+	}
+#endif
 	
+#ifdef MOD
 	// Calcul d'une solution par méthode modulaire (en prenant des nombres premiers d'au plus 30 bits)
 	// Prend bien plus de temps que Bareiss
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE) :\n");
@@ -90,36 +104,45 @@ int main(){
 		rat_aff(sol_m[i],f);
 		fprintf(f,"\n");
 	}
+#endif
 	
+#ifdef MODP
 	// Calcul d'une solution par méthode modulaire en parallèle
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE EN PARALLÈLE) :\n");
-	modulaire_thrd(&s_ini,sol_mp,state,30,thr);
+	modulaire_thrd(&s_ini,sol_mp,state,30,THR);
 	for(int i = 0;i < n;i++){
 		rat_aff(sol_mp[i],f);
 		fprintf(f,"\n");
 	}
+#endif
 	fputc('\n',f);
 	
+#ifdef BAREISS
 	// Vérifications (Bareiss)
-	//assert(verif_sol(&s,sol_b));		// Vérif "triviale"
+	assert(verif_sol(&s,sol_b));		// Vérif "triviale"
 	assert(verif_sol(&s_ini,sol_b));		// Vérif sur le systeme de départ
+#endif
 	
+#ifdef GAUSS
 	// Vérifications (Gauss)
-	//assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
+	assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
+#endif
 	
+#ifdef ZPZ
 	// Vérifications (Gauss dans Z/pZ)
-	//assert(verif_sol_zpz(&s_zpz,sol_zpz));	// Vérif "triviale"
-	//assert(verif_sol_zpz(&s_zpzv,sol_zpz));	// Vérif sur le système de départ
+	assert(verif_sol_zpz(&s_zpz,sol_zpz));	// Vérif "triviale"
+	assert(verif_sol_zpz(&s_zpzv,sol_zpz));	// Vérif sur le système de départ
+#endif
 	
+#ifdef MOD
 	// Vérification (méthode modulaire)
 	assert(verif_sol(&s_ini,sol_m));		// Vérif sur le système de départ
+#endif
 	
+#ifdef MODP
 	// Vérification (méthode modulaire en parallèle)
-	//assert(verif_sol(&s_ini,sol_mp));		// Vérif sur le système de départ
-	
-	// Essai d'exécution de Gauss sur des Z/pZ en parallèle
-	//test_zpz_multi(&s_ini,n,8,state);
-	// TEST OK
+	assert(verif_sol(&s_ini,sol_mp));		// Vérif sur le système de départ
+#endif
 	
 	// Suppression des objets utilisés
 	for(int i = 0;i < n;i++){

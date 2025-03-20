@@ -16,6 +16,8 @@ void* zpz_thrd(void* a_){
 	// Conversion de la solution en mpz_t
 	for(int i = 0;i < n;i++){
 		mpz_set_si(a->sol_m[i],a->sol[i]);
+		//mpz_out_str(stderr,10,a->sol_m[i]);		// DEBUG
+		//fputc('\n',stderr);				// DEBUG
 	}
 	return NULL;
 }
@@ -66,19 +68,19 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	for(int k = 0;k < n*thr;k++){
 		mpz_init(sol_zpz_m[k]);
 	}
-	// PREMIÈRE ITÉRATION
+	// PREMIÈRE ITÉRATION (On verra plus tard si on peut la faire rentrer dans la boucle principale)
 	// Initialisation de prod_act
 	mpz_set_si(prod_act,1);
-	// "Choix" des nombres premiers pour cette itération, MàJ de prod, calcul de prod_act, et création des syst_zpz
-	// Ceci n'a pas été mis en parallèle, car de précédents tests semblaient indiquer qu'on ne pouvait pas vraiment lire dans s en parallèle -> À RE-TESTER...
+	// Ce qui suit n'a pas été mis en parallèle, car de précédents tests semblaient indiquer qu'on ne pouvait pas vraiment lire dans s en parallèle -> À RE-TESTER...
 	for(int t = 0;t < thr;t++){
+		// "Choix" d'un nombre premier
 		p[t] = genere_p(p_mpz[t],state,b);
+		// MàJ de prod
 		mpz_mul(prod,prod,p_mpz[t]);
-		//mpz_mul(prod_act,p_mpz[t]);	// PLUS TARD
+		// MàJ de prod_act
+		//mpz_mul(prod_act,prod_act,p_mpz[t]);	// PLUS TARD
+		// Initialisation des zpz_args
 		init_copie_syst_zpz(&(sz[t]),s,p[t]);
-	}
-	// Initialisation des zpz_args
-	for(int t = 0;t < thr;t++){
 		a[t].s = &(sz[t]);
 		a[t].sol = &(sol_zpz[t*n]);
 		a[t].sol_m = &(sol_zpz_m[t*n]);
@@ -91,15 +93,24 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	for(int t = 0;t < thr;t++){
 		pthread_join(thrd[t],NULL);
 	}
-	// Par restes chinois, on bricole une solution dans Z/prod_actZ
-	// On écrit directement le résultat dans sol_tmp, puisqu'il n'y aura aucune autre chinoiserie à effectuer
-	// VERSION TEMPORAIRE, ON PEUT FAIRE ÇA EN PARALLÈLE
+	
+	
+	
+	// Copie du premier résultat dans sol_tmp (emplacement du futur résultat des restes chinois
+	for(int i = 0;i < n;i++){
+		mpz_set(sol_tmp[i],sol_zpz_m[i]);
+	}
 	mpz_set(prod_act,p_mpz[0]);
+	// Restes chinois pour obtenir une solution dans Z/prod_actZ
+	// Pour la première itération, il n'y a pas d'autres restes chinois à utiliser, et on peut donc mettre dirctement le résultat dans sol_tmp
 	for(int t = 1;t < thr;t++){
-		chinois_n(n,sol_tmp,&(sol_zpz_m[t]),sol_tmp,p_mpz[t],prod_act);
+		chinois_n(n,sol_tmp,&(sol_zpz_m[t*n]),sol_tmp,p_mpz[t],prod_act);
 		mpz_mul(prod_act,prod_act,p_mpz[t]);
 	}
-	// Construction modulaire d'un candidat solution (pareil que dans zpz.c)
+	
+	
+	
+	// Construction d'un candidat solution rationnel
 	for(int i = 0;i < n;i++){
 		euclide_etendu_borne(r,v,prod,sol_tmp[i]);
 		if(mpz_cmp_si(v,0) < 0){	// v < 0
@@ -110,33 +121,29 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 			rat_set_pq(sol[i],r,v);
 		}
 	}
-	// MàJ de prod_old
+	// MàJ de prod_old (on pourrait en fait l'initialiser ici, puisqu'on ne s'en sert pas avant)
 	mpz_set(prod_old,prod);
-	// Destruction des syst_zpz, pour pouvoir les réutiliser avec d'autres valeurs de p
+	// Destruction des syst_zpz, pour pouvoir les réutiliser
 	for(int t = 0;t < thr;t++){
 		detruit_syst_zpz(&(sz[t]));
 	}
-	// BOUCLE PRINCIPALE			(QUELQUE CHOSE NE VA PAS LÀ-DEDANS)
-	//while(!sol_egales(sol,sol_old,n)){
-	while((!sol_egales(sol,sol_old,n)) && (j < 50)){	// 2ème condition temporaire...
+	// BOUCLE PRINCIPALE
+	while(!sol_egales(sol,sol_old,n)){
 		j++;	// DEBUG
 		// Copie du précédent candidat solution sur l'emplacement de l'ancien
 		for(int i = 0;i < n;i++){
 			rat_set(sol_old[i],sol[i]);
 			mpz_set(sol_tmp_old[i],sol_tmp[i]);
 		}
-		// Réinitialisation de prod_act
-		mpz_set_si(prod_act,1);
-		// "Choix" des nombres premiers pour cette itération, MàJ de prod, calcul de prod_act, et création des syst_zpz
-		// Ceci n'a pas été mis en parallèle, car de précédents tests semblaient indiquer qu'on ne pouvait pas vraiment lire dans s en parallèle -> À RE-TESTER...
 		for(int t = 0;t < thr;t++){
+			// "Choix" d'un nombre premier pour cette itération
 			p[t] = genere_p(p_mpz[t],state,b);
+			// MàJ de prod
 			mpz_mul(prod,prod,p_mpz[t]);
-			//mpz_mul(prod_act,p_mpz[t]);	// PLUS TARD
+			// MàJ de prod_act
+			//mpz_mul(prod_act,prod_act,p_mpz[t]);	// PLUS TARD
+			// Initialisation des zpz_args
 			init_copie_syst_zpz(&(sz[t]),s,p[t]);
-		}
-		// Initialisation des zpz_args
-		for(int t = 0;t < thr;t++){
 			a[t].s = &(sz[t]);
 			a[t].sol = &(sol_zpz[t*n]);
 			a[t].sol_m = &(sol_zpz_m[t*n]);
@@ -149,18 +156,17 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 		for(int t = 0;t < thr;t++){
 			pthread_join(thrd[t],NULL);
 		}
-		// Par restes chinois, on bricole une solution dans Z/prod_actZ
-		// On écrit le résultat dans sol_zpz_m[0]
-		// VERSION TEMPORAIRE, ON PEUT FAIRE ÇA EN PARALLÈLE
+		// Réinitialisation de prod act
 		mpz_set(prod_act,p_mpz[0]);
+		// Restes chinois pour obtenir une solution dans Z/prod_actZ
+		// Le résultat est écrit dans sol_zpz_m (cases 0 à n-1) (ie sol_zpz_m[0] vu comme un tableau de taille n, bref)
 		for(int t = 1;t < thr;t++){
-			chinois_n(n,&(sol_zpz_m[0]),&(sol_zpz_m[t]),&(sol_zpz_m[0]),p_mpz[t],prod_act);
+			chinois_n(n,sol_zpz_m,&(sol_zpz_m[t*n]),sol_zpz_m,p_mpz[t],prod_act);
 			mpz_mul(prod_act,prod_act,p_mpz[t]);
 		}
-		// (prod_old * prod_act == prod)
-		// On combine la solution dans Z/prod_actZ (calculée juste avant) avec la solution dans Z/prod_oldZ
-		chinois_n(n,sol_tmp,&(sol_zpz_m[0]),sol_tmp_old,prod_act,prod_old);
-		// Construction modulaire d'un candidat solution (pareil que dans zpz.c)
+		// Restes chinois avec les solutions précédentes
+		chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,prod_act,prod_old);
+		// Construction modulaire d'un candidat solution
 		for(int i = 0;i < n;i++){
 			euclide_etendu_borne(r,v,prod,sol_tmp[i]);
 			if(mpz_cmp_si(v,0) < 0){	// v < 0
@@ -173,7 +179,7 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 		}
 		// MàJ de prod_old
 		mpz_set(prod_old,prod);
-		// Destruction des syst_zpz, pour pouvoir les réutiliser avec d'autres valeurs de p
+		// Destruction du syst_zpz, pour pouvoir les réutiliser
 		for(int t = 0;t < thr;t++){
 			detruit_syst_zpz(&(sz[t]));
 		}
@@ -209,39 +215,3 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	free(a);
 	return;
 }
-
-
-
-
-
-// ANCIEN TEST
-/*void test_zpz_multi(systeme* s,int n,int thr,gmp_randstate_t state){
-	// Déclarations
-	int* sol = malloc(n * thr * sizeof(int));
-	pthread_t* t = malloc(thr * sizeof(pthread_t));
-	zpz_args* a = malloc(thr * sizeof(zpz_args));
-	mpz_t k,p_mpz;
-	int p;
-	// Initialisations
-	mpz_init(p_mpz);
-	for(int i = 0;i < thr;i++){
-		p = genere_p(p_mpz,state,30);
-		fprintf(stderr,"%d\n",p);	// Juste pour voir si quelque chose s'exécute (et, tant qu'à faire, s'exécute avec des valeurs de p différentes)
-		init_copie_syst_zpz(&(a[i].s),s,p);
-		a[i].sol = &sol[i*n];
-	}
-	// Lancement des calculs en parallèle
-	for(int i = 0;i < thr;i++){
-		pthread_create(&t[i],NULL,zpz_resol_thrd,&a[i]);
-	}
-	// "Fin" des calculs
-	for(int i = 0;i < thr;i++){
-		pthread_join(t[i],NULL);
-	}
-	// Suppression des objets utilisés
-	mpz_clear(p_mpz);
-	free(sol);
-	free(t);
-	free(a);
-	return;
-}*/
