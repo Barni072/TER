@@ -12,13 +12,12 @@
 #include "zpz.h"
 #include "zpz_thrd.h"
 
+#define GAUSS
 #define BAREISS
-//#define GAUSS
 //#define ZPZ
-//#define MOD
+//#define MOD_OLD
+#define MOD
 #define MOD_PARA
-#define MOD_HADA
-//#define MOD_HADA_PARA		// ?
 
 #define THR 8
 
@@ -28,8 +27,8 @@ int main(){
 	gmp_randstate_t state;
 	gmp_randinit_default(state);
 	gmp_randseed_ui(state,time(NULL));
-	ecrit_fichier_au_pif("systeme2.txt",15,state,512);		// Les résultats dépassent du terminal
-	//ecrit_fichier_au_pif("systeme2.txt",6,state,64);
+	//ecrit_fichier_au_pif("systeme2.txt",50,state,512);		// Les résultats dépassent du terminal
+	ecrit_fichier_au_pif("systeme2.txt",6,state,64);
 	systeme s,s_ini;
 	syst_zpz s_zpz,s_zpzv;
 	//init_lit_systeme(&s,"systeme.txt");
@@ -55,34 +54,42 @@ int main(){
 	int p = genere_p(p_mpz,state,30);
 	init_copie_syst_zpz(&s_zpz,&s_ini,p);	// Copie du système sur laquelle l'aglo de Gauss dans Z/pZ sera testé
 	init_copie_syst_zpz(&s_zpzv,&s_ini,p);	// Copie du système qui servira à conserver le résultat initial modulo p (pour tester le résultat)
+	clock_t debut,fin;		// Pour les mesures de temps
+	double gauss_tps,bareiss_tps,mod_old_tps,mod_tps,mod_para_tps;
 	
 	// Affichage du système de départ
 	fprintf(f,"\n\nSYSTÈME DE DÉPART :\n");
 	affiche_systeme(&s_ini,f);		// Système de départ
 	
-#ifdef BAREISS
-	// Calcul d'une solution, avec l'algo de Bareiss
-	// Prend un temps raisonnable
-	fprintf(f,"\n\nSYSTÈME ÉCHELONNÉ (BAREISS) :\n");
-	bareiss(&s);
-	sol_syst_echelonne(&s,sol_b);
-	affiche_systeme(&s,f);		// Système échelonné
-	fprintf(f,"\n\nSOLUTION (BAREISS) :\n");
-	for(int i = 0;i < n;i++){
-		rat_aff(sol_b[i],f);
-		fprintf(f,"\n");
-	}
-#endif
-	
 #ifdef GAUSS
 	// Calcul d'une solution, avec l'algo de Gauss
 	// Prend 3 plombes
 	fprintf(f,"\nSOLUTION (GAUSS) :\n");
+	debut = clock();
 	gauss(&s_ini,sol_g);
-	for(int i = 0;i < n;i++){
+	fin = clock();
+	gauss_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
+	/*for(int i = 0;i < n;i++){
 		rat_aff(sol_g[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
+#endif
+	
+#ifdef BAREISS
+	// Calcul d'une solution, avec l'algo de Bareiss
+	// Prend un temps raisonnable
+	fprintf(f,"\n\nSYSTÈME ÉCHELONNÉ (BAREISS) :\n");
+	debut = clock();
+	bareiss(&s);
+	sol_syst_echelonne(&s,sol_b);
+	fin = clock();
+	bareiss_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
+	affiche_systeme(&s,f);		// Système échelonné
+	fprintf(f,"\n\nSOLUTION (BAREISS) :\n");
+	/*for(int i = 0;i < n;i++){
+		rat_aff(sol_b[i],f);
+		fprintf(f,"\n");
+	}*/
 #endif
 	
 #ifdef ZPZ
@@ -99,47 +106,60 @@ int main(){
 	}
 #endif
 	
-#ifdef MOD
+#ifdef MOD_OLD
 	// Calcul d'une solution par méthode modulaire (en prenant des nombres premiers d'au plus 30 bits)
 	// Prend trop de temps, car la reconstruction d'une solution rationnelle est trop coûteuse et faite trop souvent
-	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE) :\n");
-	modulaire(&s_ini,sol_m,state,30);
-	for(int i = 0;i < n;i++){
+	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE, ANCIENNE VERSION) :\n");
+	debut = clock();
+	modulaire_old(&s_ini,sol_m,state,30);
+	fin = clock();
+	mod_old_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
+	/*for(int i = 0;i < n;i++){
 		rat_aff(sol_m[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
+#endif
+	
+#ifdef MOD
+	// Calcul d'une solution par méthode modulaire (alternative avec borne de Hadamard)
+	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE) :\n");
+	debut = clock();
+	modulaire(&s_ini,sol_mh,state,30);
+	fin = clock();
+	mod_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
+	/*for(int i = 0;i < n;i++){
+		rat_aff(sol_mh[i],f);
+		fprintf(f,"\n");
+	}*/
 #endif
 	
 #ifdef MOD_PARA
 	// Calcul d'une solution par méthode modulaire en parallèle
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE EN PARALLÈLE) :\n");
+	debut = clock();
 	modulaire_thrd(&s_ini,sol_mp,state,30,THR);
-	for(int i = 0;i < n;i++){
+	fin = clock();
+	mod_para_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
+	/*for(int i = 0;i < n;i++){
 		rat_aff(sol_mp[i],f);
 		fprintf(f,"\n");
-	}
-#endif
-	
-#ifdef MOD_HADA
-	// Calcul d'une solution par méthode modulaire (alternative avec borne de Hadamard)
-	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE AVEC HADAMARD) :\n");
-	modulaire_hada(&s_ini,sol_mh,state,30);
-	for(int i = 0;i < n;i++){
-		rat_aff(sol_mh[i],f);
-		fprintf(f,"\n");
-	}
+	}*/
 #endif
 	fputc('\n',f);
+	
+#ifdef GAUSS
+	// Vérifications (Gauss)
+	assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
+	// Temps d'exécution :
+	fprintf(f,"Temps (Gauss) : %lf s\n",gauss_tps);
+#endif
 	
 #ifdef BAREISS
 	// Vérifications (Bareiss)
 	assert(verif_sol(&s,sol_b));		// Vérif "triviale"
 	assert(verif_sol(&s_ini,sol_b));		// Vérif sur le systeme de départ
-#endif
-	
-#ifdef GAUSS
-	// Vérifications (Gauss)
-	assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
+	// Temps d'exécution :
+	fprintf(f,"Temps (Bareiss) : %lf s\n",bareiss_tps);
 #endif
 	
 #ifdef ZPZ
@@ -148,19 +168,25 @@ int main(){
 	assert(verif_sol_zpz(&s_zpzv,sol_zpz));	// Vérif sur le système de départ
 #endif
 	
+#ifdef MOD_OLD
+	// Vérification (ancienne méthode modulaire)
+	assert(verif_sol(&s_ini,sol_m));		// Vérif sur le système de départ
+	// Temps d'exécution :
+	fprintf(f,"Temps (Ancienne méthode modulaire) : %lf s\n",mod_old_tps);
+#endif
+	
 #ifdef MOD
 	// Vérification (méthode modulaire)
-	assert(verif_sol(&s_ini,sol_m));		// Vérif sur le système de départ
+	assert(verif_sol(&s_ini,sol_mh));
+	// Temps d'exécution :
+	fprintf(f,"Temps (Méthode modulaire) : %lf s\n",mod_tps);
 #endif
 	
 #ifdef MOD_PARA
 	// Vérification (méthode modulaire en parallèle)
 	assert(verif_sol(&s_ini,sol_mp));		// Vérif sur le système de départ
-#endif
-	
-#ifdef MOD_HADA
-	// Vérification (méthode modulaire avec borne de Hadamard)
-	assert(verif_sol(&s_ini,sol_mh));
+	// Temps d'exécution :
+	fprintf(f,"Temps (Méthode modulaire en parallèle) : %lf s\n",mod_para_tps);
 #endif
 	
 	// Suppression des objets utilisés

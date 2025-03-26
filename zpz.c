@@ -308,7 +308,7 @@ void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b){
 }
 
 // Méthode modulaire de résolution du système [...]
-void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
+void modulaire_old(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// INITIALISATION
 	int j = 1;		// DEBUG, nombre d'itérations effectuées
 	clock_t debut,fin;		// DEBUG
@@ -465,7 +465,7 @@ void hadamard(mpz_t res,systeme* s){
 	return;
 }
 
-void modulaire_hada(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
+void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// INITIALISATION
 	int j = 1;		// DEBUG, nombre d'itérations effectuées
 	clock_t debut,fin;		// DEBUG
