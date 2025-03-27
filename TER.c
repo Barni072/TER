@@ -12,12 +12,13 @@
 #include "zpz.h"
 #include "zpz_thrd.h"
 
-#define GAUSS
+//#define GAUSS
 #define BAREISS
 //#define ZPZ
-//#define MOD_OLD
+#define MOD_OLD
 #define MOD
-#define MOD_PARA
+//#define MOD_PARA
+#define MOD_DETS
 
 #define THR 8
 
@@ -28,7 +29,7 @@ int main(){
 	gmp_randinit_default(state);
 	gmp_randseed_ui(state,time(NULL));
 	//ecrit_fichier_au_pif("systeme2.txt",50,state,512);		// Les résultats dépassent du terminal
-	ecrit_fichier_au_pif("systeme2.txt",6,state,64);
+	ecrit_fichier_au_pif("systeme2.txt",10,state,96);
 	systeme s,s_ini;
 	syst_zpz s_zpz,s_zpzv;
 	//init_lit_systeme(&s,"systeme.txt");
@@ -36,18 +37,20 @@ int main(){
 	int n = s.n;		// Nombre de lignes
 	int m = s.m;		// Nombre de colonnes, en comptant le second membre (en pratique : m = n+1)
 	init_copie_systeme(&s_ini,&s);	// Copie qui servira à conserver le système initial, pour pouvoir tester notre solution à la fin (sera aussi donnée à l'algo de Gauss sur les rationnels et à zpz_thrd, car ils ne le modifieront pas)
-	rationnel* sol_b = malloc(n*sizeof(rationnel));		// Contiendra la solution donnée par l'algorithme de Bareiss
 	rationnel* sol_g = malloc(n*sizeof(rationnel));		// Contiendra la solution donnée par l'algorithme de Gauss
-	rationnel* sol_m = malloc(n*sizeof(rationnel));		// Contiendra la solution obtenue par méthode modulaire
-	rationnel* sol_mp = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version en parallèle)
-	rationnel* sol_mh = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec borne de Hadamard)
+	rationnel* sol_b = malloc(n*sizeof(rationnel));		// Contiendra la solution donnée par l'algorithme de Bareiss
+	rationnel* sol_mo = malloc(n*sizeof(rationnel));		// Contiendra la solution obtenue par méthode modulaire (ancienne variante) (MOD_OLD)
+	rationnel* sol_mp = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version en parallèle) (MOD_PARA)
+	rationnel* sol_mh = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec borne de Hadamard) (MOD)
+	rationnel* sol_md = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec déterminants (et borne de Hadamard)) (MOD_DETS)
 	int* sol_zpz = malloc(n*sizeof(int));		// Contiendra la solution donnée par l'algorithme de Gauss dans Z/pZ
 	for(int i = 0;i < n;i++){
 		rat_init(&sol_b[i]);
 		rat_init(&sol_g[i]);
-		rat_init(&sol_m[i]);
+		rat_init(&sol_mo[i]);
 		rat_init(&sol_mp[i]);
 		rat_init(&sol_mh[i]);
+		rat_init(&sol_md[i]);
 	}
 	mpz_t p_mpz;
 	mpz_init(p_mpz);
@@ -55,7 +58,7 @@ int main(){
 	init_copie_syst_zpz(&s_zpz,&s_ini,p);	// Copie du système sur laquelle l'aglo de Gauss dans Z/pZ sera testé
 	init_copie_syst_zpz(&s_zpzv,&s_ini,p);	// Copie du système qui servira à conserver le résultat initial modulo p (pour tester le résultat)
 	clock_t debut,fin;		// Pour les mesures de temps
-	double gauss_tps,bareiss_tps,mod_old_tps,mod_tps,mod_para_tps;
+	double gauss_tps,bareiss_tps,mod_old_tps,mod_tps,mod_para_tps,mod_dets_tps;
 	
 	// Affichage du système de départ
 	fprintf(f,"\n\nSYSTÈME DE DÉPART :\n");
@@ -111,11 +114,11 @@ int main(){
 	// Prend trop de temps, car la reconstruction d'une solution rationnelle est trop coûteuse et faite trop souvent
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE, ANCIENNE VERSION) :\n");
 	debut = clock();
-	modulaire_old(&s_ini,sol_m,state,30);
+	modulaire_old(&s_ini,sol_mo,state,30);
 	fin = clock();
 	mod_old_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
 	/*for(int i = 0;i < n;i++){
-		rat_aff(sol_m[i],f);
+		rat_aff(sol_mo[i],f);
 		fprintf(f,"\n");
 	}*/
 #endif
@@ -145,6 +148,20 @@ int main(){
 		fprintf(f,"\n");
 	}*/
 #endif
+	
+#ifdef MOD_DETS
+	// Calcul d'une solution par méthode modulaire (alternative avec déterminants)
+	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE AVEC DÉTERMINANTS) :\n");
+	debut = clock();
+	modulaire(&s_ini,sol_md,state,30);
+	fin = clock();
+	mod_dets_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
+	/*for(int i = 0;i < n;i++){
+		rat_aff(sol_md[i],f);
+		fprintf(f,"\n");
+	}*/
+#endif
+	
 	fputc('\n',f);
 	
 #ifdef GAUSS
@@ -170,7 +187,7 @@ int main(){
 	
 #ifdef MOD_OLD
 	// Vérification (ancienne méthode modulaire)
-	assert(verif_sol(&s_ini,sol_m));		// Vérif sur le système de départ
+	assert(verif_sol(&s_ini,sol_mo));		// Vérif sur le système de départ
 	// Temps d'exécution :
 	fprintf(f,"Temps (Ancienne méthode modulaire) : %lf s\n",mod_old_tps);
 #endif
@@ -189,19 +206,28 @@ int main(){
 	fprintf(f,"Temps (Méthode modulaire en parallèle) : %lf s\n",mod_para_tps);
 #endif
 	
+#ifdef MOD_DETS
+	// Vérifications (Gauss)
+	assert(verif_sol(&s_ini,sol_md));	// Vérif sur le système de départ
+	// Temps d'exécution :
+	fprintf(f,"Temps (Gauss) : %lf s\n",mod_dets_tps);
+#endif
+	
 	// Suppression des objets utilisés
 	for(int i = 0;i < n;i++){
 		rat_clear(&sol_b[i]);
 		rat_clear(&sol_g[i]);
-		rat_clear(&sol_m[i]);
+		rat_clear(&sol_mo[i]);
 		rat_clear(&sol_mp[i]);
 		rat_clear(&sol_mh[i]);
+		rat_clear(&sol_md[i]);
 	}
 	free(sol_b);
 	free(sol_g);
-	free(sol_m);
+	free(sol_mo);
 	free(sol_mp);
 	free(sol_mh);
+	free(sol_md);
 	free(sol_zpz);
 	mpz_clear(p_mpz);
 	detruit_systeme(&s);

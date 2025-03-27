@@ -222,7 +222,7 @@ bool sol_egales(rationnel* sol1,rationnel* sol2,int n){
 // Calcule l'image réciproque de (x1,x2) (dans Z/(n1*n2)Z) par l'isomorphisme des restes chinois
 // Écrit le résultat dans res, et nécessite d'avoir déjà établi une relation de Bézout : n1*u + n2*v == 1
 // Fonctionne correctement si l'une des opérandes est aussi l'emplacement du résultat
-void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
+void chinois_old(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
 	mpz_t t1,t2,n1n2;
 	mpz_init_set(t1,x1);
 	mpz_init_set(t2,x2);
@@ -231,6 +231,30 @@ void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
 	mpz_mul(t1,t1,n2);
 	mpz_mul(t1,t1,v);
 	mpz_mul(t2,t2,n1);
+	mpz_mul(t2,t2,u);
+	mpz_add(res,t1,t2);
+	mpz_fdiv_r(res,res,n1n2);
+	mpz_clear(t1);
+	mpz_clear(t2);
+	mpz_clear(n1n2);
+	return;
+}
+
+// Calcule l'image réciproque de (x1,x2) (dans Z/(n1*n2)Z) par l'isomorphisme des restes chinois
+// Écrit le résultat dans res, et nécessite d'avoir déjà établi une relation de Bézout : n1*u + n2*v == 1
+// Fonctionne correctement si l'une des opérandes est aussi l'emplacement du résultat
+// Version améliorée du 26 mars, a priori plus rapide pour n1 grand (par sû que ce soit très exact...)
+void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
+	mpz_t t1,t2,n1n2;
+	mpz_init(t1);
+	mpz_init(t2);
+	mpz_init(n1n2);
+	mpz_mul(n1n2,n1,n2);
+	mpz_mul(t1,x1,n2);
+	//mpz_fdiv_r(t1,t1,n1);		// Non
+	mpz_mul(t1,t1,v);
+	mpz_mul(t2,x2,n1);
+	//mpz_fdiv_r(t2,t2,n1);		// Non plus
 	mpz_mul(t2,t2,u);
 	mpz_add(res,t1,t2);
 	mpz_fdiv_r(res,res,n1n2);
@@ -465,6 +489,7 @@ void hadamard(mpz_t res,systeme* s){
 	return;
 }
 
+// Version avec borne de Hadamard, et une seule reconstruction rationelle
 void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// INITIALISATION
 	int j = 1;		// DEBUG, nombre d'itérations effectuées
@@ -540,7 +565,6 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 		// Restes chinois avec les solutions précédentes
 		debut = clock();	// DEBUG
 		chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,p_mpz,prod_old);
-		// Construction modulaire d'un candidat solution
 		fin = clock();	// DEBUG
 		chinois_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 		// MàJ de prod_old
@@ -580,5 +604,116 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	free(sol_zpz_m);
 	free(sol_tmp);
 	free(sol_tmp_old);
+	return;
+}
+
+// Renvoie (ie écrit dans dets, qui est un tableau de taille s->n+1) le déterminant du système (en dernier), et les déterminants du système avec le 2nd membre à la place de chaque colonne (pas très clair)
+void zpz_dets(mpz_t* dets,syst_zpz* s){
+	int n = s->n;
+	mpz_t c;
+	mpz_init(c);
+	// Échelonnage (ou échelonnement ?)
+	zpz_gauss(s);
+	// Calcul du déterminant (en dernière position du tableau, pour moins se casser la tête avec les autres)
+	mpz_set_si(dets[n],1);
+	for(int i = 0;i < n;i++){
+		mpz_mul_si(dets[n],dets[n],lit_coeff_zpz(s,i,i));
+	}
+	// Calcul des déterminants "avec second membre" (à partir du déterminant du système)
+	for(int k = 0;k < n;k++){
+		// Multiplication par le coefficient du second membre
+		mpz_mul_si(dets[k],dets[n],lit_coeff_zpz(s,k,n));
+		// Division (exacte) par le coefficient de la diagonale (besoin de la variable intermédiaire c, car il n'y a pas de fonction mpz_divexact_si)
+		mpz_set_si(c,lit_coeff_zpz(s,k,k));
+		mpz_divexact(dets[k],dets[k],c);
+	}
+	mpz_clear(c);
+	return;
+}
+
+// Version avec (borne de Hadamard et) calcul des déterminants
+void modulaire_det(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
+	// INITIALISATION
+	int j = 1;		// DEBUG, nombre d'itérations effectuées
+	clock_t debut,fin;		// DEBUG
+	double zpz_resol_tps = 0.;
+	double chinois_tps = 0.;
+	//double reconstr_tps = 0.;
+	int n = s -> n;
+	syst_zpz sz;	// On va initialiser/copier et détruire ce système à chaque itération
+	mpz_t* dets_cour = malloc((n+1)*sizeof(mpz_t));		// Déterminants (dans Z/pZ, du système avec le second membre à la place de la 1ème colonne, puis du système sans modification (en position n)) 
+	mpz_t* dets_tot = malloc((n+1)*sizeof(mpz_t));	// De même, dans Z/prodZ
+	mpz_t p_mpz,prod_old,prod,u,v,hada,det;
+	int p;		// Nombre premier "en cours d'utilisation", version machine
+	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
+	mpz_init(prod_old);		// Produit des nombres premiers précédemment utilisés (sans p_mpz)
+	mpz_init(prod);			// Produit des nombres premiers précédemment utilisés (avec p_mpz) -> pendant une itération, prod == p*prod_old
+	mpz_init(hada);		// Contiendra (le double de) la borne de Hadamard du système
+	mpz_init(det);		// Contiendra le déterminant de sz (dans Z/pZ)
+	for(int i = 0;i < n+1;i++){
+		mpz_init(dets_cour[i]);
+		mpz_init(dets_tot[i]);
+	}
+	// Calcul de la "borne de Hadamard" (en fait 4 fois le carré de la borne de Hadamard)
+	hadamard(hada,s);
+	mpz_mul(hada,hada,hada);
+	mpz_mul_si(hada,hada,4);
+	// PREMIÈRE ITÉRATION (On verra plus tard si on peut la faire rentrer dans la boucle principale)
+	// "Choix" d'un nombre premier
+	p = genere_p(p_mpz,state,b);
+	// Initialisation de prod et prod_old
+	mpz_set(prod,p_mpz);
+	mpz_set_ui(prod_old,1);
+	// Calcul des déterminants dans Z/pZ (directement dans dets_tot pour cette étape seulement)
+	init_copie_syst_zpz(&sz,s,p);
+	debut = clock();	// DEBUG
+	zpz_dets(dets_tot,&sz);
+	fin = clock();	// DEBUG
+	zpz_resol_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
+	// MàJ de prod_old
+	mpz_set(prod_old,p_mpz);
+	// Destruction du syst_zpz, pour pouvoir le réutiliser
+	detruit_syst_zpz(&sz);
+	// BOUCLE PRINCIPALE
+	while(mpz_cmp(prod,hada) < 0){
+		j++;	// DEBUG
+		// "Choix" d'un nombre premier pour cette itération
+		p = genere_p(p_mpz,state,b);
+		// MàJ de prod
+		mpz_mul(prod,prod,p_mpz);
+		// Calcul des déterminants dans Z/pZ
+		init_copie_syst_zpz(&sz,s,p);
+		debut = clock();	//DEBUG
+		zpz_dets(dets_cour,&sz);
+		fin = clock();	// DEBUG
+		zpz_resol_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
+		// Restes chinois avec les déterminants précédents
+		debut = clock();	// DEBUG
+		chinois_n(n+1,dets_tot,dets_tot,dets_cour,prod_old,p_mpz);
+		fin = clock();	// DEBUG
+		chinois_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
+		// MàJ de prod_old
+		mpz_set(prod_old,prod);
+		// Destruction du syst_zpz, pour pouvoir le réutiliser
+		detruit_syst_zpz(&sz);
+	}
+	// SOLUTION
+	for(int i = 0;i < n;i++){
+		rat_set_pq(sol[i],dets_tot[i],dets_tot[n]);
+	}
+	//fprintf(stderr,"Nombre d'itérations : %d\n\n",j);	// DEBUG
+	fprintf(stderr,"Nombre d'itérations : %d\nTemps de résolution dans Z/pZ : %lf s\nTemps de restes chinois : %lf s\n\n",j,zpz_resol_tps,chinois_tps);	// DEBUG
+	// SUPPRESSION DES OBJETS UTILISÉS
+	for(int i = 0;i < n+1;i++){
+		mpz_clear(dets_cour[i]);
+		mpz_clear(dets_tot[i]);
+	}
+	mpz_clear(p_mpz);
+	mpz_clear(prod_old);
+	mpz_clear(prod);
+	mpz_clear(hada);
+	mpz_clear(det);
+	free(dets_cour);
+	free(dets_tot);
 	return;
 }
