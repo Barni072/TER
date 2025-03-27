@@ -29,11 +29,11 @@ int main(){
 	gmp_randinit_default(state);
 	gmp_randseed_ui(state,time(NULL));
 	//ecrit_fichier_au_pif("systeme2.txt",50,state,512);		// Les résultats dépassent du terminal
-	ecrit_fichier_au_pif("systeme2.txt",10,state,96);
+	//ecrit_fichier_au_pif("systeme2.txt",10,state,96);
 	systeme s,s_ini;
 	syst_zpz s_zpz,s_zpzv;
-	//init_lit_systeme(&s,"systeme.txt");
-	init_lit_systeme(&s,"systeme2.txt");
+	init_lit_systeme(&s,"systeme.txt");
+	//init_lit_systeme(&s,"systeme2.txt");
 	int n = s.n;		// Nombre de lignes
 	int m = s.m;		// Nombre de colonnes, en comptant le second membre (en pratique : m = n+1)
 	init_copie_systeme(&s_ini,&s);	// Copie qui servira à conserver le système initial, pour pouvoir tester notre solution à la fin (sera aussi donnée à l'algo de Gauss sur les rationnels et à zpz_thrd, car ils ne le modifieront pas)
@@ -89,10 +89,10 @@ int main(){
 	bareiss_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
 	affiche_systeme(&s,f);		// Système échelonné
 	fprintf(f,"\n\nSOLUTION (BAREISS) :\n");
-	/*for(int i = 0;i < n;i++){
+	for(int i = 0;i < n;i++){
 		rat_aff(sol_b[i],f);
 		fprintf(f,"\n");
-	}*/
+	}
 #endif
 	
 #ifdef ZPZ
@@ -153,13 +153,13 @@ int main(){
 	// Calcul d'une solution par méthode modulaire (alternative avec déterminants)
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE AVEC DÉTERMINANTS) :\n");
 	debut = clock();
-	modulaire(&s_ini,sol_md,state,30);
+	modulaire_dets(&s_ini,sol_md,state,30);
 	fin = clock();
 	mod_dets_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
-	/*for(int i = 0;i < n;i++){
+	for(int i = 0;i < n;i++){
 		rat_aff(sol_md[i],f);
 		fprintf(f,"\n");
-	}*/
+	}
 #endif
 	
 	fputc('\n',f);

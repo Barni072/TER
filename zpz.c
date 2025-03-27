@@ -632,7 +632,7 @@ void zpz_dets(mpz_t* dets,syst_zpz* s){
 }
 
 // Version avec (borne de Hadamard et) calcul des déterminants
-void modulaire_det(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
+void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// INITIALISATION
 	int j = 1;		// DEBUG, nombre d'itérations effectuées
 	clock_t debut,fin;		// DEBUG
