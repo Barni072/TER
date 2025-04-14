@@ -1,0 +1,484 @@
+\documentclass[french]{article}
+\usepackage{mathtools}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage[]{algorithm2e}
+\usepackage[margin=3.2cm,footskip=2cm]{geometry}
+\usepackage{enumitem}
+\usepackage{amsfonts}
+\usepackage{float}
+\usepackage{stmaryrd}
+\setcounter{MaxMatrixCols}{42}
+\title{Implémentation en C/C++ de la résolution exacte de systèmes linéaires à coefficients entiers}
+\date{29/03/2025}
+\author{Barnabé Chabaux}
+
+\begin{document}
+\maketitle
+\section{Introduction et objectifs}
+L'objectif de ce TER est d'implémenter en langage C, par diverses méthodes, la résolution exacte de systèmes linéaires à coefficients entiers. Il a été effectué sous la direction de Bernard Parisse.
+\newline
+On va d'abord naïvement programmer le pivot de Gauss, puis l'améliorer un peu de sorte à ce qu'il ne fasse intervenir que des entiers (algorithme de Bareiss), et implémenter une méthode de résolution modulaire, où l'on résout le système (par le pivot de Gauss) dans $\mathbb{Z}/p\mathbb{Z}$ pour différents nombres premiers $p$. [Pas assez détaillé]
+\newline
+Le système linéaire que l'on cherche à résoudre est de cette forme :
+\newline
+%%$$\left \{
+%%\begin{array}{rcrcrcrcl}
+%%	a_{1,1} x_1 &+ &\cdots &+ &a_{1,j} x_j &+ &\cdots &+ &a_{1,n} x_n &= b_1\\
+%%	a_{i,1} x_1 &+ &\cdots &+ &a_{i,j} x_j &+ &\cdots &+ &a_{i,n} x_n &= b_i\\
+%%	a_{n,1} x_1 &+ &\cdots &+ &a_{n,j} x_j &+ &\cdots &+ &a_{n,n} x_n &= b_n
+%%
+%%\end{array}
+%%\right.
+%%$$
+[Message d'erreur mystique, et second membre une ligne trop bas...] [Version moche : ]
+\begin{equation*}
+	\begin{cases}
+		a_{1,1} x_1 + \cdots + a_{1,j} x_j + \cdots + a_{1,n} x_n = b_1\\
+		\vdots\\
+		a_{i,1} x_1 + \cdots + a_{i,j} x_j + \cdots + a_{i,n} x_n = b_i\\
+		\vdots\\
+		a_{n,1} x_1 + \cdots + a_{n,j} x_j + \cdots + a_{n,n} x_n = b_n
+	\end{cases}
+\end{equation*}
+où $a_{i,j}$ et les $b_i$ sont des entiers donnés, et les inconnues sont les $x_j$.
+\newline
+On peut le représenter sous forme matricielle :
+\begin{equation*}
+	\begin{pmatrix}
+		a_{1,1} & a_{1,2} & \cdots & a_{1,j} & \cdots & a_{1,n}\\
+		a_{2,1} & a_{2,2} & \cdots & a_{2,j} & \cdots & a_{2,n}\\
+		\vdots  & \vdots  & & \vdots & & \vdots\\
+		a_{i,1} & a_{i,2} & \cdots & a_{i,j} & \cdots & a_{i,n}\\
+		\vdots  & \vdots  &  & \vdots & &\vdots\\
+		a_{n,1} & a_{n,2} & \cdots & a_{n,j} & \cdots & a_{n,n}
+	\end{pmatrix}
+	\begin{pmatrix}
+		x_1\\
+		x_2\\
+		\vdots\\
+		x_j\\
+		\vdots\\
+		x_n
+	\end{pmatrix}
+	=
+	\begin{pmatrix}
+		b_1\\
+		b_2\\
+		\vdots\\
+		b_i\\
+		\vdots\\
+		b_n
+	\end{pmatrix}
+\end{equation*}
+Mais pour gagner en place (et, avec un peu de chance, en lisibilité), on le représentera surtout sous la forme suivante, avec le second membre "dans" la matrice :
+\begin{equation*}
+	\begin{pmatrix}
+		a_{1,1} & a_{1,2} & \cdots & a_{1,j} & \cdots & a_{1,n}&&b_1\\
+		a_{2,1} & a_{2,2} & \cdots & a_{2,j} & \cdots & a_{2,n}&&b_2\\
+		\vdots  & \vdots  & & \vdots & & \vdots&&\vdots\\
+		a_{i,1} & a_{i,2} & \cdots & a_{i,j} & \cdots & a_{i,n}&&b_i\\
+		\vdots  & \vdots  &  & \vdots & &\vdots&&\vdots\\
+		a_{n,1} & a_{n,2} & \cdots & a_{n,j} & \cdots & a_{n,n}&&b_n
+	\end{pmatrix}
+\end{equation*}
+Cette représentation, un peu douteuse mathématiquement parlant, a tout de même l'avantage de correspondre à la façon dont sont stockés les coefficients du système dans mon implémentation, qu'on exposera plus en détail dans la partie 5.3.
+\section{Pivot de Gauss}
+La première méthode qui vient à l'esprit pour résoudre des systèmes linéaires est le pivot de Gauss, tel que vu en classe de L1. On peut utiliser cette méthode directement en voyant les coefficients du système comme des rationnels, mais on s'en servira aussi plus tard (dans la section 4) dans des corps finis.
+\subsection{Algorithme}
+\subsubsection{Pseudo-code}
+\begin{algorithm}[H]
+	\caption{Pivot de Gauss}
+	\DontPrintSemicolon
+	\Entree{Un système de Cramer de taille $n$, à coefficients entiers}
+	\Sortie{Le même système linéaire, échelonné}
+	\Pour{k allant de 1 à n}{
+		\tcp{On échange éventuellement des lignes, de sorte que $a_{k,k}$ soit non nul et puisse servir de pivot}
+		\Si{$a_{k,k} = 0$}{
+			Choisir $l > k$ tel que $a_{l,k} \neq 0$
+			\\
+			\tcp{L'existence d'un tel $l$ est assurée par le fait que le système est de Cramer}
+			Échanger la $k$-ième ligne avec la $l$-ième
+		}
+		\tcp{Si on souhaite calculer le déterminant du système, il faut garder en mémoire le nombre de permutations effectuées}
+		\Pour{i allant de k+1 à n}{
+			\tcp{On traite les coefficients de la $i$-ème ligne}
+			\Pour{j allant de k à n}{
+				$a_{i,j} \gets a_{i,j}-\frac{a_{i,k} a_{k,j}}{a_{k,k}}$
+				\tcp*{On remarque que $a_{i,k}$ vaut ainsi 0}
+			}
+			\tcp{On n'oublie pas la $i$-ème coordonnée du second membre}
+			$b_i \gets b_i-\frac{a_{i,k} b_k}{a_{k,k}}$
+		}
+	}
+\end{algorithm}
+\leavevmode \newline
+Après avoir échelonné le système, il reste à "remonter" pour en obtenir la solution :\\\\
+\begin{algorithm}[H]
+	\caption{Obtention d'une solution à partir d'un système échelonné}
+	\DontPrintSemicolon
+	\Entree{Un système de Cramer échelonné}
+	\Sortie{La solution $x$ de ce système}
+	\Pour{k allant de n à 1}{
+		$x_k \gets b_k$
+		\Pour{l allant de k+1 à n}{
+			$x_k \gets x_k - a_{k,l} x_l$
+		}
+	}
+\end{algorithm}
+\subsubsection{Avec un système}
+Voyons ce que cet algorithme donne sur un système. On se place dans le cas où les $k$ premières lignes ont été échelonnées.
+\begin{equation*}
+	\begin{pmatrix}
+		a_{1,1} & \cdots & a_{1,k-1} & a_{1,k} & a_{1,k+1} & \cdots & a_{1,n}&&b_1\\
+		\vdots  & \ddots & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & & a_{k-1,k-1} & a_{k-1,k} & a_{k-1,k+1} & \cdots & a_{k-1,n}&&b_{k-1}\\
+		0 & \cdots & 0 & a_{k,k} & a_{k,k+1} & \cdots & a_{k,n}&&b_k\\
+		0 & \cdots & 0 & a_{k+1,k} & a_{k+1,k+1} & \cdots & a_{k+1,n}&&b_{k+1}\\
+		\vdots  & & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & \cdots & 0 & a_{n,k} & a_{n,k+1} & \cdots & a_{n,n}&&b_n\\
+	\end{pmatrix}
+\end{equation*}
+Après l'itération du $k$-ème pivot, le système ressemble à ceci :
+\begin{equation*}
+	\begin{pmatrix}
+		a_{1,1} & \cdots & a_{1,k-1} & a_{1,k} & a_{1,k+1} & \cdots & a_{1,n}&&b_1\\
+		\vdots  & \ddots & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & & a_{k-1,k-1} & a_{k-1,k} & a_{k-1,k+1} & \cdots & a_{k-1,n}&&b_{k-1}\\
+		0 & \cdots & 0 & a_{k,k} & a_{k,k+1} & \cdots & a_{k,n}&&b_k\\
+		0 & \cdots & 0 & 0 & a_{k+1,k+1}-\frac{a_{k+1,k} a_{k,k+1}}{a_{k,k}} & \cdots & a_{k+1,n}-\frac{a_{k+1,k} a_{k,n}}{a_{k,k}}&&b_{k+1}-\frac{a_{k+1,k} b_k}{a_{k,k}}\\
+		\vdots  & & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & \cdots & 0 & 0 & a_{n,k+1}-\frac{a_{n,k} a_{k,k+1}}{a_{k,k}} & \cdots & a_{n,n}-\frac{a_{n,k} a_{k,n}}{a_{k,k}}&&b_n-\frac{a_{n,k} b_k}{a_{k,k}}\\
+	\end{pmatrix}
+\end{equation*}
+La matrice est désormais échelonnée jusqu'à la $k+1$-ème ligne.
+\subsection{Exemple}
+Considérons un petit système de taille 3, avec des coefficients entiers vus comme des rationnels :
+\begin{equation*}
+	\begin{cases}
+		17 x_1 + 2 x_2 - 3 x_3 = 9\\
+		4 x_1 + 7 x_2 - 8 x_3 = -5\\
+		x_1 - 5 x_3 = 4
+	\end{cases}
+\end{equation*}
+Ou, sous forme "matricielle avec second membre" :
+\begin{equation*}
+	\begin{pmatrix}
+		17 & 2 & -3 & & 9\\
+		4 & 7 & -8 & & -5\\
+		1 & 0 & -5 & & 4
+	\end{pmatrix}
+\end{equation*}
+Le premier pivot est $a_{1,1} = 17$
+\begin{equation*}
+	\begin{pmatrix}
+		17 & 2 & -3 & & 9\\
+		0 & \frac{111}{17} & \frac{124}{17} & & \frac{-121}{17}\\
+		0 & \frac{-2}{17} & \frac{88}{17} & & \frac{59}{17}
+	\end{pmatrix}
+\end{equation*}
+Le second pivot est $a_{2,2} = \frac{-124}{17}$
+\begin{equation*}
+	\begin{pmatrix}
+		17 & 2 & -3 & & 9\\
+		0 & \frac{111}{17} & \frac{124}{17} & & \frac{-121}{17}\\
+		0 & 0 & \frac{560}{111} & & \frac{371}{111}
+	\end{pmatrix}
+\end{equation*}
+Le système est échelonné. On en déduit sa solution :
+\begin{equation*}
+	\begin{cases}
+		x_1 = \frac{11}{16}\\
+		x_2 = \frac{-7}{20}\\
+		x_3 = \frac{53}{80}
+	\end{cases}
+\end{equation*}
+On remarque que les coefficients du système deviennent déjà assez grands, malgré la petite taille du système et de ses coefficients initiaux.
+\subsection{Complexité}
+Cet algorithme effectue $O(n^3)$ opérations sur le corps dans lequel on l'utilise. C'est intéressant dans un corps fini où ce coût est constant, mais beaucoup moins dans le cas de Q [écrire Q correctement], où il dépend de la taille des éléments (qui, on vient de le voir, a tendance à vite croître).
+\section{Algorithme de Bareiss}
+L'algorithme de Bareiss est une variante du pivot de Gauss, qui permet d'éviter de se retrouver avec des coefficients rationnels (non entiers). 
+\subsection{Algorithme}
+\subsubsection{Pseudo-code}
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\caption{Algorithme de Bareiss}
+	\Entree{Un système de Cramer de taille $n$, à coefficients entiers}
+	\Sortie{Le même système linéaire, échelonné, et à coefficients entiers}
+	$a_{0,0} \gets 1$
+	\tcp*{On décrète que le "$0$-ème" pivot est 1, de sorte que diviser par $a_{0,0}$ ne change rien}
+	\Pour{k allant de 1 à n}{
+		\tcp{$a_{k,k}$ va jouer le rôle de pivot}
+		\tcp{Pour effectuer moins de calculs, on échange la $k$-ième ligne avec l'une des suivantes, de sorte à minimiser $\lvert a_{k,k} \rvert$}
+		Choisir $l \geq k$ minimisant $\lvert a_{l,k} \rvert$
+		\\
+		Échanger la $k$-ième ligne avec la $l$-ième
+		\\
+		\Pour{i allant de k+1 à n}{
+			\tcp{On traite les coefficients de la $i$-ème ligne}
+			\Pour{j allant de k à n}{
+				$a_{i,j} \gets \frac{a_{i,j} a_{k,k} - a_{i,k} a_{k,j}}{a_{k-1,k-1}}$
+				\tcp*{On remarque que $a_{i,k}$ vaut ainsi 0}
+			}
+			\tcp{On n'oublie pas la $i$-ème coordonnée du second membre}
+			$b_i \gets \frac{b_i a_{k,k} - a_{i,k} b_k}{a_{k-1,k-1}}$
+		}
+	}
+\end{algorithm}
+\leavevmode \newline
+Une fois le système échelonné, il reste à obtenir la solution, en remontant avec l'algorithme 2, comme précédemment.
+\subsubsection{Avec un système}
+Comme pour le pivot de Gauss, voyons à quoi ressemble une itération de la boucle principale de l'algorithme de Bareiss. Ici, les $k$ premières lignes sont échelonnées.
+\begin{equation*}
+	\begin{pmatrix}
+		a_{1,1} & \cdots & a_{1,k-1} & a_{1,k} & a_{1,k+1} & \cdots & a_{1,n}&&b_1\\
+		\vdots  & \ddots & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & & a_{k-1,k-1} & a_{k-1,k} & a_{k-1,k+1} & \cdots & a_{k-1,n}&&b_{k-1}\\
+		0 & \cdots & 0 & a_{k,k} & a_{k,k+1} & \cdots & a_{k,n}&&b_k\\
+		0 & \cdots & 0 & a_{k+1,k} & a_{k+1,k+1} & \cdots & a_{k+1,n}&&b_{k+1}\\
+		\vdots  & & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & \cdots & 0 & a_{n,k} & a_{n,k+1} & \cdots & a_{n,n}&&b_n\\
+	\end{pmatrix}
+\end{equation*}
+Après l'itération du $k$-ème pivot, le système ressemble à ceci :
+\begin{equation*}
+	\begin{pmatrix}
+		a_{1,1} & \cdots & a_{1,k-1} & a_{1,k} & a_{1,k+1} & \cdots & a_{1,n}&&b_1\\
+		\vdots  & \ddots & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & & a_{k-1,k-1} & a_{k-1,k} & a_{k-1,k+1} & \cdots & a_{k-1,n}&&b_{k-1}\\
+		0 & \cdots & 0 & a_{k,k} & a_{k,k+1} & \cdots & a_{k,n}&&b_k\\
+		0 & \cdots & 0 & 0 & \frac{a_{k+1,k+1} a_{k,k} - a_{k+1,k} a_{k,k+1}}{a_{k-1,k-1}} & \cdots & \frac{a_{k+1,n} a_{k,k} - a_{k+1,k} a_{k,n}}{a_{k-1,k-1}}&&\frac{b_{k+1} a_{k,k} - a_{k+1,k} b_k}{a_{k-1,k-1}}\\
+		\vdots  & & \vdots & \vdots & \vdots & & \vdots&&\vdots\\
+		0 & \cdots & 0 & 0 & \frac{a_{n,k+1} a_{k,k} - a_{n,k} a_{k,k+1}}{a_{k-1,k-1}} & \cdots & \frac{a_{n,n} a_{k,k} - a_{n,k} a_{k,n}}{a_{k-1,k-1}}&&\frac{b_{n} a_{k,k} - a_{n,k} b_k}{a_{k-1,k-1}}
+	\end{pmatrix}
+\end{equation*}
+Les $k+1$ premières lignes de la matrice sont désormais échelonnées.
+\subsubsection{Explications}
+[Divisibilité par $a_{k-1,k-1}$, voir manuel algo de Xcas ]
+\newline
+[Les coefficients du système sont des déterminants de matrices entières, et sont donc entiers]
+\newline
+Notons $L_i$ la $i$-ième ligne du système. Considérons l'opération suivante, que l'on effectue pour chaque pivot lors de l'algorithme :
+$$L_i \gets \frac{a_{k,k} L_i - a_{i,k} L_k}{a_{k-1,k-1}}$$
+Contrairement à la simple transvection que l'on effectue avec le pivot de Gauss, cette opération modifie le déterminant du système, qui se voit multiplié par $\frac{a_{k,k}}{a_{k-1,k-1}}$. À la fin de l'algorithme, lorsque cette opération a été effectuée $n$ fois, le déterminant a été multiplié par :
+$$\frac{a_{1,1}}{a_{0,0}} \hdots \frac{a_{n,n}}{a_{n-1,n-1}} = \frac{a_{n,n}}{a_{0,0}} = a_{n,n}$$
+[À la base, je cherchais à dire qu'en fin d'exécution, $a_{n,n}$ contient le déterminant du système. En obtenant un tel résultat et en l'appliquant à des sous matrices, on en déduit que les coefficients du système restent entiers...]
+\subsection{Exemple}
+Pour éviter de rajouter des étapes (et ainsi rester à peu près lisible), on ne cherchera pas à échanger les lignes pour minimiser la taille des pivots. Considérons le même petit système que précédemment.
+\begin{equation*}
+	\begin{pmatrix}
+		17 & 2 & -3 & & 9\\
+		4 & 7 & -8 & & -5\\
+		1 & 0 & -5 & & 4
+	\end{pmatrix}
+\end{equation*}
+Le premier pivot est $a_{1,1} = 17$
+\begin{equation*}
+	\begin{pmatrix}
+		17 & 2 & -3 & & 9\\
+		0 & 111 & -124 & & -121\\
+		0 & -2 & 88 & & 59
+	\end{pmatrix}
+\end{equation*}
+Le second pivot est $a_{2,2} = 111$
+\begin{equation*}
+	\begin{pmatrix}
+		17 & 2 & -3  & & 9\\
+		0 & 111 & -124 & & -121\\
+		0 & 0 & 560 & & 371
+	\end{pmatrix}
+\end{equation*}
+Le système est échelonné. On en déduit sa solution :
+\begin{equation*}
+	\begin{cases}
+		x_1 = \frac{11}{16}\\
+		x_2 = \frac{-7}{20}\\
+		x_3 = \frac{53}{80}
+	\end{cases}
+\end{equation*}
+On remarque que c'est bien la même solution que précédemment.
+\subsection{Complexité}
+[Pour l'instant en supposant que les entiers ont une taille $O(1)$ : ]
+\newline
+Notons n la taille du système (son nombre de lignes). Les multiplications $a_{i,j} a_{k,k}$ et $a_{i,k} a_{k,j}$ ont chacune un coût en $O(n^2 ln(n)^2)$ [mettre un espace là-dedans, c'est laid] avec la multiplication dite "naïve" (à cause des tailles des coefficients, qui sont en $O(n ln(n))$). Le calcul de chaque coefficient à chaque étape [peu clair] vaut donc lui aussi $O(n^2 ln(n)^2)$. Ce calcul étant fait de l'ordre de $n^3$ fois, la complexité totale de l'algorithme de Bareiss est en $O(n^5 ln(n)^2)$. Avec une meilleure multiplication (FFT), le calcul de chaque coefficient coûte seulement $O(n ln(n)^2)$ [en vrai : $O(n ln(n) ln(ln(n)))$...], ce qui porte la complexité totale de l'algorithme à $O(n^4 ln(n)^2)$.
+\newline
+[Peut-être réécrire ça, c'est peu clair]
+\section{Méthode modulaire}
+L'idée de la méthode modulaire est de résoudre le système modulo divers nombres premiers, et d'utiliser ces solutions modulaires pour construire la solution du système de départ. Une telle méthode pose d'emblée différents problèmes :
+\begin{description}
+	\item Il est nécessaire de "combiner" des éléments de $\mathbb{Z}/n_1\mathbb{Z}$ et de $\mathbb{Z}/n_2\mathbb{Z}$ pour obtenir des éléments de $\mathbb{Z}/n_1n_2\mathbb{Z}$. Cela correspond précisément au théorème des restes chinois.
+	\item Il faut obtenir une solution (du système initial) à la fin, et donc un moyen de construire celle-ci. Deux approches ont été essayées : la construction de rationnels à partir d'éléments de $\mathbb{Z}/n\mathbb{Z}$, et une méthode utilisant la règle de Cramer.
+	\item Enfin, il est nécessaire de savoir quand s'arrêter de faire des résolutions modulaires et renvoyer la solution. Là aussi, deux approches ont été essayées : construire un candidat solution à chaque itération et comparer avec celui de l'itération précédente, ou comparer le produit des nombres premiers utilisés avec la borne de Hadamard su système.
+\end{description}
+[Pas beau ?]
+\subsection{Restes Chinois}
+[Quand ça sera implémenté correctement...]
+\subsection{Reconstruction rationnelle}
+À partir d'un $b \in \mathbb{Z}/n\mathbb{Z}$, on cherche à obtenir un rationnel $\frac{num}{den}$, avec $num \in \mathbb{Z}$ et $den \in \mathbb{N}^*$ premiers entre eux, tel que :
+\begin{equation*}
+	\begin{cases}
+		num \  den^{-1} \equiv b \pmod n\\
+		\lvert num \rvert < \frac{\sqrt{n}}{2}\\
+		0 < den < \frac{\sqrt{n}}{2}\\
+		den \wedge n = 1
+	\end{cases}
+\end{equation*}
+[Écrire autrement le fait que $den$ et $n$ sont premiers entre eux ?]
+\newline
+Pour cela, on utilise une variante de l'algorithme d'Euclide étendu, où on s'arrête dès qu'on obtient un reste strictement inférieur à $\sqrt{n}$.\newline\newline
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\caption{Reconstruction modulaire avec l'algorithme d'Euclide étendu}
+	\Entree{$n \in \mathbb{N}^*, \ b \in \mathbb{Z}/n\mathbb{Z}$}
+	\Sortie{$\frac{num}{den}$, vérifiant les conditions souhaitées}
+	$r_0 \gets n$\\
+	$r_1 \gets b$\\
+	$v_0 \gets 0$\\
+	$v_1 \gets 1$\\
+	$k \gets 1$\\
+	\tcp{$u_0$ et $u_1$ ne sont pas nécessaires ici}
+	\Tq{$r_k \geq \sqrt{n}$}{
+		$k\gets k+1$\\
+		$q \gets$ quotient de la division euclidienne de $r_{k-2}$ par $r_{k-1}$\\
+		$r_k \gets r_{k-2} - q r_{k-1}$
+		\tcp*{Reste de la division euclidienne ci-dessus}
+		$v_k \gets  v_{k-2} - q v_{k-1}$
+	}
+	\tcp{À ce stade, $den = \lvert v_k \rvert$ et $num = \pm v_k$ (selon le signe de $v_k$)}
+	\tcp{On veut s'assurer que le signe soit "porté" par $num$ :}
+	\eSi{$v_k < 0$}{
+		\Retour{$\frac{-r_k}{-v_k}$}
+	}{
+		\Retour{$\frac{r_k}{v_k}$}
+	}
+\end{algorithm}
+\leavevmode \newline
+Typiquement, dans ce qui va suivre, on utilisera la reconstruction rationnelle pour calculer chacune des coordonées de la solution, donc $n$ fois.
+\newline
+[Calcul du coût...] En pratique, la reconstruction rationnelle est trop couteuse pour être effectuée à chaque itération.  [Détailler ça]
+\subsection{Règle de Cramer}
+[Mettre Hadamard avant ?] [L'implémenter correctement avant de trop en parler ?]
+\newline
+Considérons un système linéaire de taille $n$ :
+$$ A x = b$$
+(On a donc $A \in M_n(\mathbb{N})$ et $b \in \mathbb{N}^n$ donnés, et l'inconnue est $x \in \mathbb{Q}^n$ [Préciser ceci est-il bien nécessaire ?] [Préciser les notations des coefficients ?])
+\newline
+Notons $A_j$ la matrice $A$ dont la $j$-ième colonne a été remplacée par le second membre $b$ :
+\begin{equation*}
+	A_j = 
+	\begin{pmatrix}
+		a_{1,1} & a_{1,2} & \cdots & a_{1,j-1} & b_1 & a_{1,j+1} & \cdots & a_{1,n}\\
+		a_{2,1} & a_{2,2} & \cdots & a_{2,j-1} & b_2 & a_{2,j+1} & \cdots & a_{2,n}\\
+		\vdots  & \vdots  & & \vdots & \vdots & \vdots & & \vdots\\
+		a_{i,1} & a_{i,2} & \cdots & a_{i,j-1} & b_i & a_{i,j+1} & \cdots & a_{i,n}\\
+		\vdots  & \vdots  & & \vdots & \vdots & \vdots & & \vdots\\
+		a_{n,1} & a_{n,2} & \cdots & a_{n,j-1} & b_n & a_{n,j+1} &\cdots & a_{n,n}
+	\end{pmatrix}
+\end{equation*}
+On a alors :
+$$ \forall j \in \llbracket1,n\rrbracket, x_j = \frac{det(A_j)}{det(A)}$$
+[Dire quelque chose sur le fait qu'on peut facilement avoir ces déterminants modulo des nombres premiers...]
+\newline
+\newline
+Pour obtenir le déterminant d'un système échelonné par le pivot de Gauss, il suffit de calculer le produit des coefficients diagonaux, en gardant à l'esprit que des lignes ont potentiellement été permutées. En notant $l$ le nombre de permutations de lignes effectuées pendant le pivot de Gauss, on a :
+$$ det(A) = (-1)^l\prod_{i = 1}^na_{i,i}$$
+En faisant de même pour les matrices $A_j$ (la valeur de $l$ est la même), on a :
+$$ \forall j \in \llbracket1,n\rrbracket, det(A_j) = (-1)^l b_j \prod_{\substack{i=1 \\ i\neq j}}^na_{i,i}$$
+\subsection{Borne de Hadamard}
+Soit $A \in M_n(\mathbb{C})$, on note $C_1,\hdots,C_n$ ses vecteurs colonnes. On a :
+$$ \lvert det(A) \rvert \le \lVert C_1 \rVert_2 \hdots \lVert C_n \rVert_2$$
+[Expliquer plus précisément comment on s'en sert]
+\subsection{Algorithme général}
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\caption{Méthode modulaire de résolution des systèmes}
+	\Entree{Un système de Cramer de taille $n$, à coefficients entiers}
+	\Sortie{La solution $x$ du système}
+	$prod \gets 1$
+	\tcp*{Représente le produit des nombres premiers utilisés}
+	$hada \gets$ Borne de Hadamard du système\\
+	\Tq{$\frac{\sqrt{prod}}{2} < hada$}{
+		Choisir $p$ premier\\
+		Effectuer le pivot de Gauss dans $\mathbb{Z}/p\mathbb{Z}$\\
+		En déduire le déterminant du système modulo $p$\\
+		Ainsi que les déterminants du système avec chaque colonne remplacée par le second membre, toujours modulo $p$\\
+		Utiliser les restes chinois pour obtenir tous ces déterminants modulo $prod \times p$\\
+		$prod \gets prod \times p$
+	}
+	\tcp{Utilisation de la règle de Cramer pour obtenir la solution :}
+	\Pour{k allant de 1 à n}{
+		$x_k \gets \frac{\mbox{Déterminant du système avec le second membre à la place de la $k$-ième colonne, modulo $prod$}}{\mbox{Déterminant du système modulo $prod$}}$
+	}
+\end{algorithm}
+\leavevmode \newline
+[Notations à améliorer]
+\newline \newline
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\caption{Ancienne variante, sans utiliser la règle de Cramer}
+	\Entree{Un système de Cramer de taille $n$, à coefficients entiers}
+	\Sortie{La solution $x$ du système}
+	$prod \gets 1$
+	\tcp*{Représente le produit des nombres premiers utilisés}
+	$hada \gets$ Borne de Hadamard du système\\
+	\Tq{$\frac{\sqrt{prod}}{2} < hada$}{
+		Choisir $p$ premier\\
+		Effectuer le pivot de Gauss dans $\mathbb{Z}/p\mathbb{Z}$\\
+		En déduire une solution du système modulo $p$\\
+		Utiliser les restes chinois pour obtenir une solution modulo $prod \times p$\\
+		$prod \gets prod \times p$
+	}
+	\tcp{Obtention d'une solution au système initial :}
+	\Pour{k allant de 1 à n}{
+		$x_k \gets$ reconstruction rationnelle à partir de la $k$-ième coordonnée de la solution modulo $prod$
+	}
+\end{algorithm}
+\leavevmode \newline
+[Lisibilité à améliorer...]
+\newline \newline
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\caption{Première variante, n'utilise pas la règle de Cramer, ni la borne de Hadamard}
+	\Entree{Un système de Cramer de taille $n$, à coefficients entiers}
+	\Sortie{La solution $x$ du système}
+	$prod \gets 1$
+	\tcp*{Représente le produit des nombres premiers utilisés}
+	\Tq{le nouveau candidat solution est différent de l'ancien}{
+		Choisir $p$ premier\\
+		Effectuer le pivot de Gauss dans $\mathbb{Z}/p\mathbb{Z}$\\
+		En déduire une solution du système modulo $p$\\
+		Utiliser les restes chinois pour obtenir une solution modulo $prod \times p$\\
+		$prod \gets prod \times p$
+		$x \gets$ candidat solution obtenu par reconstruction rationnelle
+	}
+	\tcp{Obtention d'une solution au système initial :}
+	\Pour{k allant de 1 à n}{
+		$x_k \gets$ reconstruction rationnelle à partir de la $k$-ième coordonnée de la solution modulo $prod$
+	}
+\end{algorithm}
+\leavevmode \newline
+[Condition du while : assez moche] [Redire que faire des reconstructions rationnelles est couteux ?] [Changer l'ordre des variantes ?]
+\subsection{Complexité}
+Le pivot de Gauss étant ici utilisé dans des corps finis, son coût est en $O(n³)$.
+[...]
+\subsection{Exemple}
+[Essayer de faire un truc avec des nombres premiers de taille raisonnable...]
+\section{Outils utilisés}
+En plus du langage de programmation C et de ses librairies standard [parler des librairies standard ?], plusieurs outils ont été nécessaires pour mener à bien ce travail.
+\subsection{La bibliothèque GMP}
+GMP (GNU Multiple Precision) est une bibliothèque libre et open source qui permet de manipuler des nombres entiers, rationnels et flottants, avec une précision arbitraire (contrairement aux entiers et flottants disponibles nativement). On utilise ici uniquement les nombres entiers. GMP met à disposition des fonctions permettant d'effectuer diverses opérations sur les entiers, allant des calculs basiques aux recherches de PGCD et de coefficients de Bézout, en passant par des tests de primalité, de la génération de nombres pseudo-aléatoires, et des choses plus terre-à-terre comme l'affichage des nombres dans un fichier ou dans le terminal. [Présenter rapidement comment ça marche ? Ou on n'est pas là pour ça ?] La résolution de systèmes à coefficients entiers ayant tendance à faire apparaître des nombres d'assez grande taille, c'est avec cette bibliothèque que j'ai représenté la plupart des entiers dans ce travail.
+\subsection{Représentation des nombres rationnels}
+Les systèmes à coefficients entiers ayant des solutions rationnelles, il est nécessaire de trouver une façon de représenter les nombres rationnels. Plutôt que d'utiliser les rationnels fournis par GMP, j'ai choisi d'implémenter moi-même des nombres rationnels à partir des entiers de GMP, principalement car c'est une tâche assez simple qui permettait un premier contact avec la bibliothèque et sa documentation.
+Un nombre rationnel est représenté par deux entiers : son numérateur et son dénominateur, supposés premiers entre eux. 
+$$r = \frac{p}{q}, \mbox{ avec} \ p \in \mathbb{Z}\ \mbox{et} \ q \in \mathbb{N}^*$$
+De cette façon, les nombres rationnels sont représentés de façon exacte (ça ne serait pas le cas en utilisant des flottants), et leurs numérateurs et dénominateurs peuvent être de taille arbitraire.
+Il restait alors à écrire quelques fonctions pour manipuler ces rationnels : affectation, opérations de base, test d'égalité, initialisation/suppression... D'autres petites fonctions auraient raisonnablement pu être écrites, comme une comparaison entre deux rationnels, mais elles n'avaient pas vraiment d'utilité dans le cadre de ce travail.
+À la fin de chaque calcul, pour s'assurer que le numérateur et le dénominateur restent premiers entre eux (ce qui évite de ralentir les calculs en traînant des entiers énormes inutilement), ils sont divisés par leur PGCD.
+\subsection{Représentation des systèmes linéaires}
+Les systèmes sont représentés par une matrice d'entiers de GMP, qui est elle-même représentée par un type structuré contenant le nombre de lignes n, le nombre de colonnes m, un tableau (1D) contenant tous les coefficients (y compris le second membre). Le nombre de colonnes a initialement été rajouté dans l'optique de permettre de résoudre un système pour plusieurs seconds membres à la fois, mais cette idée n'a finalement pas vu le jour, et donc en pratique m = n+1.
+Pour accéder plus simplement aux coefficients du système, des fonctions ont été écrites pour lire et écrire des coefficients avec leur numéro de ligne et de colonne [mal dit].
+[Autres fonctions : initialisation/copie/suppression, vérification de solution, etc. (?)] [Réécrire cette partie...]
+\subsection{Représentation des éléments de $\mathbb{Z}/p\mathbb{Z}$}
+[Entiers machine] [Cette section va être très courte, et sera-t-elle vraiment utile ?]
+\section{Mesures de temps de calcul}
+\end{document}

@@ -607,27 +607,25 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	return;
 }
 
-// Renvoie (ie écrit dans dets, qui est un tableau de taille s->n+1) le déterminant du système (en dernier), et les déterminants du système avec le 2nd membre à la place de chaque colonne (pas très clair)
-void zpz_dets(mpz_t* dets,syst_zpz* s){
+// Renvoie (ie écrit dans dets, qui est un tableau de taille s->n+1) le déterminant modulo s->p du système (en dernier), et les déterminants modulo s->p du système avec le 2nd membre à la place de chaque colonne (pas très clair)
+void zpz_dets(int* dets,syst_zpz* s){
 	int n = s->n;
-	mpz_t c;
-	mpz_init(c);
+	int p = s->p;
 	// Échelonnage (ou échelonnement ?)
 	zpz_gauss(s);
 	// Calcul du déterminant (en dernière position du tableau, pour moins se casser la tête avec les autres)
-	mpz_set_si(dets[n],1);
+	dets[n] = 1;
 	for(int i = 0;i < n;i++){
-		mpz_mul_si(dets[n],dets[n],lit_coeff_zpz(s,i,i));
+		//mpz_mul_si(dets[n],dets[n],lit_coeff_zpz(s,i,i));
+		dets[n] = zpz_mul(dets[n],lit_coeff_zpz(s,i,i),p);
 	}
 	// Calcul des déterminants "avec second membre" (à partir du déterminant du système)
 	for(int k = 0;k < n;k++){
 		// Multiplication par le coefficient du second membre
-		mpz_mul_si(dets[k],dets[n],lit_coeff_zpz(s,k,n));
-		// Division (exacte) par le coefficient de la diagonale (besoin de la variable intermédiaire c, car il n'y a pas de fonction mpz_divexact_si)
-		mpz_set_si(c,lit_coeff_zpz(s,k,k));
-		mpz_divexact(dets[k],dets[k],c);
+		dets[k] = zpz_mul(dets[n],lit_coeff_zpz(s,k,n),p);
+		// Division (exacte) par le coefficient de la diagonale
+		dets[k] = zpz_mul(dets[k],zpz_inv(lit_coeff_zpz(s,k,k),p),p);
 	}
-	mpz_clear(c);
 	return;
 }
 
@@ -641,8 +639,9 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	//double reconstr_tps = 0.;
 	int n = s -> n;
 	syst_zpz sz;	// On va initialiser/copier et détruire ce système à chaque itération
-	mpz_t* dets_cour = malloc((n+1)*sizeof(mpz_t));		// Déterminants (dans Z/pZ, du système avec le second membre à la place de la 1ème colonne, puis du système sans modification (en position n)) 
-	mpz_t* dets_tot = malloc((n+1)*sizeof(mpz_t));	// De même, dans Z/prodZ
+	int* dets = malloc((n+1)*sizeof(int));		// Déterminants (dans Z/pZ, du système avec le second membre à la place de la 1ème colonne, puis du système sans modification (en position n)), version entiers machine
+	mpz_t* dets_mpz = malloc((n+1)*sizeof(mpz_t));		// Déterminants (dans Z/pZ, du système avec le second membre à la place de la 1ème colonne, puis du système sans modification (en position n)), version GMP
+	mpz_t* dets_tot = malloc((n+1)*sizeof(mpz_t));	// De même dans Z/prodZ
 	mpz_t p_mpz,prod_old,prod,u,v,hada,det;
 	int p;		// Nombre premier "en cours d'utilisation", version machine
 	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
@@ -651,7 +650,7 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	mpz_init(hada);		// Contiendra (le double de) la borne de Hadamard du système
 	mpz_init(det);		// Contiendra le déterminant de sz (dans Z/pZ)
 	for(int i = 0;i < n+1;i++){
-		mpz_init(dets_cour[i]);
+		mpz_init(dets_mpz[i]);
 		mpz_init(dets_tot[i]);
 	}
 	// Calcul de la "borne de Hadamard" (en fait 4 fois le carré de la borne de Hadamard)
@@ -660,15 +659,23 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	mpz_mul_si(hada,hada,4);
 	// PREMIÈRE ITÉRATION (On verra plus tard si on peut la faire rentrer dans la boucle principale)
 	// "Choix" d'un nombre premier
-	p = genere_p(p_mpz,state,b);
+	//p = genere_p(p_mpz,state,b);
+	p = 17;
+	mpz_set_si(p_mpz,p);
+	fprintf(stderr,"p = %d\n",p);	// DEBUG
 	// Initialisation de prod et prod_old
 	mpz_set(prod,p_mpz);
 	mpz_set_ui(prod_old,1);
-	// Calcul des déterminants dans Z/pZ (directement dans dets_tot pour cette étape seulement)
+	// Calcul des déterminants dans Z/pZ
 	init_copie_syst_zpz(&sz,s,p);
 	debut = clock();	// DEBUG
-	zpz_dets(dets_tot,&sz);
+	zpz_dets(dets,&sz);
 	fin = clock();	// DEBUG
+	// Copie des déterminants dans dets_tot directement (pour cette étape seulement)
+	for(int i = 0;i < n+1;i++){
+		mpz_set_si(dets_tot[i],dets[i]);
+		fprintf(stderr,"%d\n",dets[i]);		// DEBUG
+	}
 	zpz_resol_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 	// MàJ de prod_old
 	mpz_set(prod_old,p_mpz);
@@ -684,12 +691,16 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 		// Calcul des déterminants dans Z/pZ
 		init_copie_syst_zpz(&sz,s,p);
 		debut = clock();	//DEBUG
-		zpz_dets(dets_cour,&sz);
+		zpz_dets(dets,&sz);
 		fin = clock();	// DEBUG
 		zpz_resol_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
+		// Copie des déterminants dans dets_mpz
+		for(int i = 0;i < n+1;i++){
+			mpz_set_si(dets_mpz[i],dets[i]);
+		}
 		// Restes chinois avec les déterminants précédents
 		debut = clock();	// DEBUG
-		chinois_n(n+1,dets_tot,dets_tot,dets_cour,prod_old,p_mpz);
+		chinois_n(n+1,dets_tot,dets_tot,dets_mpz,prod_old,p_mpz);
 		fin = clock();	// DEBUG
 		chinois_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 		// MàJ de prod_old
@@ -705,7 +716,7 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	fprintf(stderr,"Nombre d'itérations : %d\nTemps de résolution dans Z/pZ : %lf s\nTemps de restes chinois : %lf s\n\n",j,zpz_resol_tps,chinois_tps);	// DEBUG
 	// SUPPRESSION DES OBJETS UTILISÉS
 	for(int i = 0;i < n+1;i++){
-		mpz_clear(dets_cour[i]);
+		mpz_clear(dets_mpz[i]);
 		mpz_clear(dets_tot[i]);
 	}
 	mpz_clear(p_mpz);
@@ -713,7 +724,8 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	mpz_clear(prod);
 	mpz_clear(hada);
 	mpz_clear(det);
-	free(dets_cour);
+	free(dets);
+	free(dets_mpz);
 	free(dets_tot);
 	return;
 }

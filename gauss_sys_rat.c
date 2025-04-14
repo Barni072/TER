@@ -44,9 +44,17 @@ void ecrit_coeff_rat(sys_rat* s,int i,int j,rationnel n){
 	return;
 }
 
+void echange_lignes_rat(sys_rat* s,int i1,int i2){
+	int m = s->m;
+	for(int j = 0;j < m;j++){
+		rat_swap(s->t[i1*m + j],s->t[i2*m + j]);
+	}
+	return;
+}
+
 // Échelonne le système, avec l'algo de Gauss "classique"
-// Fait à l'arrache, à bien tester
-void gauss_ech(sys_rat* sr){
+// Foire en cas de pivot nul
+void gauss_ech_old(sys_rat* sr){
 	int n = sr->n;
 	//int m = sr->m;	// Pas besoin, m=n+1
 	rationnel p,ij,ik,kj,a,b,c;
@@ -59,6 +67,52 @@ void gauss_ech(sys_rat* sr){
 	rat_init(&c);
 	for(int k = 0;k < n-1;k++){
 		lit_coeff_rat(p,sr,k,k);	// Pivot
+		for(int i = k+1;i < n;i++){
+			lit_coeff_rat(ik,sr,i,k);
+			rat_div(a,ik,p);
+			for(int j = k+1;j < n+1;j++){
+				lit_coeff_rat(ij,sr,i,j);
+				lit_coeff_rat(kj,sr,k,j);
+				rat_mul(b,kj,a);
+				rat_sub(c,ij,b);
+				ecrit_coeff_rat(sr,i,j,c);
+			}
+			rat_set_si(b,0);
+			ecrit_coeff_rat(sr,i,k,b);
+		}
+	}
+	rat_clear(&p);
+	rat_clear(&ij);
+	rat_clear(&ik);
+	rat_clear(&kj);
+	rat_clear(&a);
+	rat_clear(&b);
+	rat_clear(&c);
+	return;
+}
+
+// Échelonne le système, avec l'algo de Gauss "classique"
+// Échange les lignes en cas de pivot nul
+void gauss_ech(sys_rat* sr){
+	int n = sr->n;
+	//int m = sr->m;	// Pas besoin, m=n+1
+	rationnel p,ij,ik,kj,a,b,c;
+	rat_init(&p);
+	rat_init(&ij);
+	rat_init(&ik);
+	rat_init(&kj);
+	rat_init(&a);
+	rat_init(&b);
+	rat_init(&c);
+	for(int k = 0;k < n-1;k++){
+		for(int l = k;l < n;l++){
+			lit_coeff_rat(p,sr,l,k);
+			if(!rat_comp_int(p,0)){
+				echange_lignes_rat(sr,k,l);
+				break;
+			}
+			//else fputc('!',stderr);	// DEBUG
+		}
 		for(int i = k+1;i < n;i++){
 			lit_coeff_rat(ik,sr,i,k);
 			rat_div(a,ik,p);

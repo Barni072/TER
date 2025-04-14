@@ -68,6 +68,13 @@ void rat_set_si(rationnel x,long int n){
 	return;
 }
 
+// Échange deux rationnels "efficacement"
+void rat_swap(rationnel x,rationnel y){
+	mpz_swap(x->p,y->p);
+	mpz_swap(x->q,y->q);
+	return;
+}
+
 // Affiche le numérateur, le dénominateur et une approximation flottante du rationnel x
 void rat_aff(rationnel x,FILE* f){
 	//long int p = mpz_get_si(x->p);
@@ -165,4 +172,7 @@ bool rat_comp(rationnel x,rationnel y){
 }
 bool rat_comp_ent(rationnel x,mpz_t n){
 	return ((mpz_cmp(x->p,n) == 0) && (mpz_cmp_si(x->q,1) == 0));
+}
+bool rat_comp_int(rationnel x,int n){
+	return ((mpz_cmp_si(x->p,n) == 0) && (mpz_cmp_si(x->q,1) == 0));
 }

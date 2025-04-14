@@ -23,6 +23,7 @@ void rat_set_q(rationnel x,mpz_t q);
 void rat_set_pq(rationnel x,mpz_t p,mpz_t q);
 void rat_set_ent(rationnel x,mpz_t n);
 void rat_set_si(rationnel x,long int n);
+void rat_swap(rationnel x,rationnel y);
 void rat_aff(rationnel x,FILE* f);
 void rat_add(rationnel res,rationnel x,rationnel y);
 void rat_sub(rationnel res,rationnel x,rationnel y);
@@ -35,5 +36,6 @@ void rat_mul_ent(rationnel res,rationnel x,mpz_t n);
 void rat_div_ent(rationnel res,rationnel x,mpz_t n);
 bool rat_comp(rationnel x,rationnel y);
 bool rat_comp_ent(rationnel x,mpz_t n);
+bool rat_comp_int(rationnel x,int n);
 
 #endif

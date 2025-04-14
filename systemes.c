@@ -50,6 +50,15 @@ void ecrit_coeff(systeme* s,int i,int j,mpz_t n){
 	return;
 }
 
+// Échange les lignes i1 et i2 de s
+void echange_lignes(systeme* s,int i1,int i2){
+	int m = s->m;
+	for(int j = 0;j < m;j++){
+		mpz_swap(s->t[i1*m + j],s->t[i2*m + j]);
+	}
+	return;
+}
+
 // Affiche un système dans le terminal, pour l'instant de façon matricielle et très moche
 void affiche_systeme(systeme* s,FILE* f){
 	int n = s->n;

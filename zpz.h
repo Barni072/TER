@@ -37,7 +37,7 @@ void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b);
 void modulaire_old(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b);
 void hadamard(mpz_t res,systeme* s);
 void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b);
-//void zpz_dets(mpz_t* dets,syst_zpz* s);
+//void zpz_dets(int* dets,syst_zpz* s);
 void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b);
 
 #endif
