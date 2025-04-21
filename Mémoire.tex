@@ -1,4 +1,5 @@
 \documentclass[french]{article}
+\usepackage[french]{babel}
 \usepackage{mathtools}
 \usepackage{amsmath}
 \usepackage{listings}
@@ -8,6 +9,12 @@
 \usepackage{amsfonts}
 \usepackage{float}
 \usepackage{stmaryrd}
+\usepackage{ifpdf}
+\ifpdf
+\usepackage[colorlinks,pdftex]{hyperref}
+\else
+\usepackage[ps2pdf,breaklinks=true,colorlinks=true,linkcolor=red,citecolor=green]{hyperref}
+\fi
 \setcounter{MaxMatrixCols}{42}
 \title{Implémentation en C/C++ de la résolution exacte de systèmes linéaires à coefficients entiers}
 \date{29/03/2025}
@@ -15,33 +22,25 @@
 
 \begin{document}
 \maketitle
-\section{Introduction et objectifs}
+\tableofcontents
+\section{Introduction et objectifs} \label{sec:intro}
 L'objectif de ce TER est d'implémenter en langage C, par diverses méthodes, la résolution exacte de systèmes linéaires à coefficients entiers. Il a été effectué sous la direction de Bernard Parisse.
 \newline
-On va d'abord naïvement programmer le pivot de Gauss, puis l'améliorer un peu de sorte à ce qu'il ne fasse intervenir que des entiers (algorithme de Bareiss), et implémenter une méthode de résolution modulaire, où l'on résout le système (par le pivot de Gauss) dans $\mathbb{Z}/p\mathbb{Z}$ pour différents nombres premiers $p$. [Pas assez détaillé]
+On va d'abord naïvement programmer le pivot de Gauss, puis l'améliorer un peu de sorte à ce qu'il ne fasse intervenir que des entiers (algorithme de Bareiss), et implémenter une méthode de résolution modulaire, où l'on résout le système (par le pivot de Gauss) dans $\mathbb{Z}/p\mathbb{Z}$ pour différents nombres premiers $p$. [Il y avait quelque chose à rajouter ici, mais j'ai oublié quoi...]
 \newline
 Le système linéaire que l'on cherche à résoudre est de cette forme :
 \newline
-%%$$\left \{
-%%\begin{array}{rcrcrcrcl}
-%%	a_{1,1} x_1 &+ &\cdots &+ &a_{1,j} x_j &+ &\cdots &+ &a_{1,n} x_n &= b_1\\
-%%	a_{i,1} x_1 &+ &\cdots &+ &a_{i,j} x_j &+ &\cdots &+ &a_{i,n} x_n &= b_i\\
-%%	a_{n,1} x_1 &+ &\cdots &+ &a_{n,j} x_j &+ &\cdots &+ &a_{n,n} x_n &= b_n
-%%
-%%\end{array}
-%%\right.
-%%$$
-[Message d'erreur mystique, et second membre une ligne trop bas...] [Version moche : ]
-\begin{equation*}
-	\begin{cases}
-		a_{1,1} x_1 + \cdots + a_{1,j} x_j + \cdots + a_{1,n} x_n = b_1\\
-		\vdots\\
-		a_{i,1} x_1 + \cdots + a_{i,j} x_j + \cdots + a_{i,n} x_n = b_i\\
-		\vdots\\
-		a_{n,1} x_1 + \cdots + a_{n,j} x_j + \cdots + a_{n,n} x_n = b_n
-	\end{cases}
-\end{equation*}
-où $a_{i,j}$ et les $b_i$ sont des entiers donnés, et les inconnues sont les $x_j$.
+$$\left \{
+\begin{array}{ccccccccccc}
+	a_{1,1} x_1 &+ &\cdots &+ &a_{1,j} x_j &+ &\cdots &+ &a_{1,n} x_n &= & b_1\\
+	\vdots & & & & \vdots & & & & \vdots & & \vdots\\
+	a_{i,1} x_1 &+ &\cdots &+ &a_{i,j} x_j &+ &\cdots &+ &a_{i,n} x_n &= & b_i\\
+	\vdots & & & & \vdots & & & & \vdots & & \vdots\\
+	a_{n,1} x_1 &+ &\cdots &+ &a_{n,j} x_j &+ &\cdots &+ &a_{n,n} x_n &= & b_n
+\end{array}
+\right.
+$$
+où $a_{i,j}$ et les $b_i$ sont des entiers donnés, et les inconnues sont les $x_j$. [Pointillés un peu douteux ?]
 \newline
 On peut le représenter sous forme matricielle :
 \begin{equation*}
@@ -82,9 +81,9 @@ Mais pour gagner en place (et, avec un peu de chance, en lisibilité), on le rep
 		a_{n,1} & a_{n,2} & \cdots & a_{n,j} & \cdots & a_{n,n}&&b_n
 	\end{pmatrix}
 \end{equation*}
-Cette représentation, un peu douteuse mathématiquement parlant, a tout de même l'avantage de correspondre à la façon dont sont stockés les coefficients du système dans mon implémentation, qu'on exposera plus en détail dans la partie 5.3.
-\section{Pivot de Gauss}
-La première méthode qui vient à l'esprit pour résoudre des systèmes linéaires est le pivot de Gauss, tel que vu en classe de L1. On peut utiliser cette méthode directement en voyant les coefficients du système comme des rationnels, mais on s'en servira aussi plus tard (dans la section 4) dans des corps finis.
+Cette représentation a l'avantage de correspondre à la façon dont sont stockés les coefficients du système dans mon implémentation, qu'on exposera dans la section \ref{subsec:systemes}.
+\section{Pivot de Gauss} \label{sec:gauss}
+La première méthode qui vient à l'esprit pour résoudre des systèmes linéaires est le pivot de Gauss, tel que vu en classe de L1. On peut utiliser cette méthode directement en voyant les coefficients du système comme des rationnels, mais on s'en servira aussi plus tard (dans la section \ref{sec:modulaire}) dans des corps finis.
 \subsection{Algorithme}
 \subsubsection{Pseudo-code}
 \begin{algorithm}[H]
@@ -195,8 +194,8 @@ Le système est échelonné. On en déduit sa solution :
 \end{equation*}
 On remarque que les coefficients du système deviennent déjà assez grands, malgré la petite taille du système et de ses coefficients initiaux.
 \subsection{Complexité}
-Cet algorithme effectue $O(n^3)$ opérations sur le corps dans lequel on l'utilise. C'est intéressant dans un corps fini où ce coût est constant, mais beaucoup moins dans le cas de Q [écrire Q correctement], où il dépend de la taille des éléments (qui, on vient de le voir, a tendance à vite croître).
-\section{Algorithme de Bareiss}
+Cet algorithme effectue $O(n^3)$ opérations sur le corps dans lequel on l'utilise. C'est intéressant dans un corps fini où ce coût est constant, mais beaucoup moins dans le cas de $\mathbb{Q}$, où il dépend de la taille des éléments (qui a tendance à vite croître).
+\section{Algorithme de Bareiss} \label{sec:bareiss}
 L'algorithme de Bareiss est une variante du pivot de Gauss, qui permet d'éviter de se retrouver avec des coefficients rationnels (non entiers). 
 \subsection{Algorithme}
 \subsubsection{Pseudo-code}
@@ -254,15 +253,13 @@ Après l'itération du $k$-ème pivot, le système ressemble à ceci :
 \end{equation*}
 Les $k+1$ premières lignes de la matrice sont désormais échelonnées.
 \subsubsection{Explications}
-[Divisibilité par $a_{k-1,k-1}$, voir manuel algo de Xcas ]
-\newline
 [Les coefficients du système sont des déterminants de matrices entières, et sont donc entiers]
 \newline
 Notons $L_i$ la $i$-ième ligne du système. Considérons l'opération suivante, que l'on effectue pour chaque pivot lors de l'algorithme :
 $$L_i \gets \frac{a_{k,k} L_i - a_{i,k} L_k}{a_{k-1,k-1}}$$
 Contrairement à la simple transvection que l'on effectue avec le pivot de Gauss, cette opération modifie le déterminant du système, qui se voit multiplié par $\frac{a_{k,k}}{a_{k-1,k-1}}$. À la fin de l'algorithme, lorsque cette opération a été effectuée $n$ fois, le déterminant a été multiplié par :
-$$\frac{a_{1,1}}{a_{0,0}} \hdots \frac{a_{n,n}}{a_{n-1,n-1}} = \frac{a_{n,n}}{a_{0,0}} = a_{n,n}$$
-[À la base, je cherchais à dire qu'en fin d'exécution, $a_{n,n}$ contient le déterminant du système. En obtenant un tel résultat et en l'appliquant à des sous matrices, on en déduit que les coefficients du système restent entiers...]
+$$\frac{a_{1,1}}{a_{0,0}} \times \hdots \times \frac{a_{n,n}}{a_{n-1,n-1}} = \frac{a_{n,n}}{a_{0,0}} = a_{n,n}$$
+[À la base, je cherchais à dire qu'en fin d'exécution, $a_{n,n}$ contient le déterminant du système. En obtenant un tel résultat et en l'appliquant à des sous matrices, on en déduit que les coefficients du système restent entiers...] [Je ne suis pas convaincu par mon explication]
 \subsection{Exemple}
 Pour éviter de rajouter des étapes (et ainsi rester à peu près lisible), on ne cherchera pas à échanger les lignes pour minimiser la taille des pivots. Considérons le même petit système que précédemment.
 \begin{equation*}
@@ -300,10 +297,10 @@ On remarque que c'est bien la même solution que précédemment.
 \subsection{Complexité}
 [Pour l'instant en supposant que les entiers ont une taille $O(1)$ : ]
 \newline
-Notons n la taille du système (son nombre de lignes). Les multiplications $a_{i,j} a_{k,k}$ et $a_{i,k} a_{k,j}$ ont chacune un coût en $O(n^2 ln(n)^2)$ [mettre un espace là-dedans, c'est laid] avec la multiplication dite "naïve" (à cause des tailles des coefficients, qui sont en $O(n ln(n))$). Le calcul de chaque coefficient à chaque étape [peu clair] vaut donc lui aussi $O(n^2 ln(n)^2)$. Ce calcul étant fait de l'ordre de $n^3$ fois, la complexité totale de l'algorithme de Bareiss est en $O(n^5 ln(n)^2)$. Avec une meilleure multiplication (FFT), le calcul de chaque coefficient coûte seulement $O(n ln(n)^2)$ [en vrai : $O(n ln(n) ln(ln(n)))$...], ce qui porte la complexité totale de l'algorithme à $O(n^4 ln(n)^2)$.
+Notons n la taille du système (son nombre de lignes). Les multiplications $a_{i,j} a_{k,k}$ et $a_{i,k} a_{k,j}$ ont chacune un coût en $O(n^2 \mbox{ ln}(n)^2)$ [mettre un espace là-dedans, c'est laid] avec la multiplication dite "naïve" (à cause des tailles des coefficients, qui sont en $O(n \mbox{ ln}(n))$). Le calcul de chaque coefficient à chaque étape [peu clair] vaut donc lui aussi $O(n^2 \mbox{ ln}(n)^2)$. Ce calcul étant fait de l'ordre de $n^3$ fois, la complexité totale de l'algorithme de Bareiss est en $O(n^5 \mbox{ ln}(n)^2)$. Avec une meilleure multiplication (FFT), le calcul de chaque coefficient coûte seulement $O(n \mbox{ ln}(n)^2)$ [en vrai : $O(n \mbox{ ln}(n) \mbox{ ln}(\mbox{ln}(n)))$...], ce qui porte la complexité totale de l'algorithme à $O(n^4 \mbox{ ln}(n)^2)$.
 \newline
 [Peut-être réécrire ça, c'est peu clair]
-\section{Méthode modulaire}
+\section{Méthode modulaire} \label{sec:modulaire}
 L'idée de la méthode modulaire est de résoudre le système modulo divers nombres premiers, et d'utiliser ces solutions modulaires pour construire la solution du système de départ. Une telle méthode pose d'emblée différents problèmes :
 \begin{description}
 	\item Il est nécessaire de "combiner" des éléments de $\mathbb{Z}/n_1\mathbb{Z}$ et de $\mathbb{Z}/n_2\mathbb{Z}$ pour obtenir des éléments de $\mathbb{Z}/n_1n_2\mathbb{Z}$. Cela correspond précisément au théorème des restes chinois.
@@ -323,8 +320,6 @@ L'idée de la méthode modulaire est de résoudre le système modulo divers nomb
 		den \wedge n = 1
 	\end{cases}
 \end{equation*}
-[Écrire autrement le fait que $den$ et $n$ sont premiers entre eux ?]
-\newline
 Pour cela, on utilise une variante de l'algorithme d'Euclide étendu, où on s'arrête dès qu'on obtient un reste strictement inférieur à $\sqrt{n}$.\newline\newline
 \begin{algorithm}[H]
 	\DontPrintSemicolon
@@ -353,11 +348,11 @@ Pour cela, on utilise une variante de l'algorithme d'Euclide étendu, où on s'a
 	}
 \end{algorithm}
 \leavevmode \newline
-Typiquement, dans ce qui va suivre, on utilisera la reconstruction rationnelle pour calculer chacune des coordonées de la solution, donc $n$ fois.
+Typiquement, dans ce qui va suivre, on utilisera la reconstruction rationnelle pour calculer chacune des coordonnées de la solution, donc $n$ fois.
 \newline
-[Calcul du coût...] En pratique, la reconstruction rationnelle est trop couteuse pour être effectuée à chaque itération.  [Détailler ça]
-\subsection{Règle de Cramer}
-[Mettre Hadamard avant ?] [L'implémenter correctement avant de trop en parler ?]
+On verra dans la section \ref{subsec:modcompl} que la reconstruction rationnelle est trop coûteuse pour être utilisée à chaque itération. [+ Potentielle utilisation pour la méthode p-adique, qui n'a pas été implémentée]
+\subsection{Règle de Cramer} \label{subsec:cramer}
+[L'implémenter correctement avant de trop en parler ?]
 \newline
 Considérons un système linéaire de taille $n$ :
 $$ A x = b$$
@@ -374,6 +369,7 @@ Notons $A_j$ la matrice $A$ dont la $j$-ième colonne a été remplacée par le 
 		\vdots  & \vdots  & & \vdots & \vdots & \vdots & & \vdots\\
 		a_{n,1} & a_{n,2} & \cdots & a_{n,j-1} & b_n & a_{n,j+1} &\cdots & a_{n,n}
 	\end{pmatrix}
+	\in M_n(\mathbb{N})
 \end{equation*}
 On a alors :
 $$ \forall j \in \llbracket1,n\rrbracket, x_j = \frac{det(A_j)}{det(A)}$$
@@ -389,6 +385,9 @@ Soit $A \in M_n(\mathbb{C})$, on note $C_1,\hdots,C_n$ ses vecteurs colonnes. On
 $$ \lvert det(A) \rvert \le \lVert C_1 \rVert_2 \hdots \lVert C_n \rVert_2$$
 [Expliquer plus précisément comment on s'en sert]
 \subsection{Algorithme général}
+\subsubsection{Dernière version}
+Cette version de l'algorithme utilise la borne d'Hadamard pour déterminer quand arrêter les calculs, et la règle de Cramer pour calculer la solution du système initial.
+\newline
 \begin{algorithm}[H]
 	\DontPrintSemicolon
 	\caption{Méthode modulaire de résolution des systèmes}
@@ -407,12 +406,13 @@ $$ \lvert det(A) \rvert \le \lVert C_1 \rVert_2 \hdots \lVert C_n \rVert_2$$
 	}
 	\tcp{Utilisation de la règle de Cramer pour obtenir la solution :}
 	\Pour{k allant de 1 à n}{
-		$x_k \gets \frac{\mbox{Déterminant du système avec le second membre à la place de la $k$-ième colonne, modulo $prod$}}{\mbox{Déterminant du système modulo $prod$}}$
+		$x_k \gets \frac{\mbox{det}(A_k) \mbox{ mod } prod}{\mbox{det}(A) \mbox{ mod } prod}$
+		\\
+		\tcp{$A_k$ est la matrice des coefficients du système, avec $b$ à la place de la $k$-ième colonne, telle que définie dans la section \ref{subsec:cramer}}
 	}
 \end{algorithm}
 \leavevmode \newline
-[Notations à améliorer]
-\newline \newline
+\subsubsection{Anciennes versions}
 \begin{algorithm}[H]
 	\DontPrintSemicolon
 	\caption{Ancienne variante, sans utiliser la règle de Cramer}
@@ -428,13 +428,9 @@ $$ \lvert det(A) \rvert \le \lVert C_1 \rVert_2 \hdots \lVert C_n \rVert_2$$
 		Utiliser les restes chinois pour obtenir une solution modulo $prod \times p$\\
 		$prod \gets prod \times p$
 	}
-	\tcp{Obtention d'une solution au système initial :}
-	\Pour{k allant de 1 à n}{
-		$x_k \gets$ reconstruction rationnelle à partir de la $k$-ième coordonnée de la solution modulo $prod$
-	}
+	$x \gets$ solution obtenue par reconstruction rationnelle
 \end{algorithm}
 \leavevmode \newline
-[Lisibilité à améliorer...]
 \newline \newline
 \begin{algorithm}[H]
 	\DontPrintSemicolon
@@ -444,26 +440,31 @@ $$ \lvert det(A) \rvert \le \lVert C_1 \rVert_2 \hdots \lVert C_n \rVert_2$$
 	$prod \gets 1$
 	\tcp*{Représente le produit des nombres premiers utilisés}
 	\Tq{le nouveau candidat solution est différent de l'ancien}{
-		Choisir $p$ premier\\
+		Choisir $p$ premier, s'écrivant sur 30 bits\\
 		Effectuer le pivot de Gauss dans $\mathbb{Z}/p\mathbb{Z}$\\
 		En déduire une solution du système modulo $p$\\
 		Utiliser les restes chinois pour obtenir une solution modulo $prod \times p$\\
-		$prod \gets prod \times p$
+		$prod \gets prod \times p$\\
 		$x \gets$ candidat solution obtenu par reconstruction rationnelle
-	}
-	\tcp{Obtention d'une solution au système initial :}
-	\Pour{k allant de 1 à n}{
-		$x_k \gets$ reconstruction rationnelle à partir de la $k$-ième coordonnée de la solution modulo $prod$
 	}
 \end{algorithm}
 \leavevmode \newline
-[Condition du while : assez moche] [Redire que faire des reconstructions rationnelles est couteux ?] [Changer l'ordre des variantes ?]
-\subsection{Complexité}
-Le pivot de Gauss étant ici utilisé dans des corps finis, son coût est en $O(n³)$.
-[...]
+[Condition du while : assez moche]
+\subsection{Complexité} \label{subsec:modcompl}
+Le pivot de Gauss étant ici utilisé dans des corps finis, son coût est donc en $O(n^3)$ à chaque utilisation.
+\newline
+[Restes chinois]
+\newline
+[Reconstruction rationnelle -> trop coûteux]
+\newline
+[Nombre d'itérations/borne de Hadamard]
+Pour atteindre la majoration du déterminant du système donnée par la borne de Hadamard, il est nécessaire d'effectuer $O(n \mbox{ ln}(n))$ exécutions du pivot de Gauss dans des $\mathbb{Z}/p\mathbb{Z}$.
+[Dire qu'on effectue moins d'itérations avec la méthode de reconstruction/comparaison ?]
+\newline
+[Total]
 \subsection{Exemple}
 [Essayer de faire un truc avec des nombres premiers de taille raisonnable...]
-\section{Outils utilisés}
+\section{Outils utilisés} \label{sec:outils}
 En plus du langage de programmation C et de ses librairies standard [parler des librairies standard ?], plusieurs outils ont été nécessaires pour mener à bien ce travail.
 \subsection{La bibliothèque GMP}
 GMP (GNU Multiple Precision) est une bibliothèque libre et open source qui permet de manipuler des nombres entiers, rationnels et flottants, avec une précision arbitraire (contrairement aux entiers et flottants disponibles nativement). On utilise ici uniquement les nombres entiers. GMP met à disposition des fonctions permettant d'effectuer diverses opérations sur les entiers, allant des calculs basiques aux recherches de PGCD et de coefficients de Bézout, en passant par des tests de primalité, de la génération de nombres pseudo-aléatoires, et des choses plus terre-à-terre comme l'affichage des nombres dans un fichier ou dans le terminal. [Présenter rapidement comment ça marche ? Ou on n'est pas là pour ça ?] La résolution de systèmes à coefficients entiers ayant tendance à faire apparaître des nombres d'assez grande taille, c'est avec cette bibliothèque que j'ai représenté la plupart des entiers dans ce travail.
@@ -472,13 +473,21 @@ Les systèmes à coefficients entiers ayant des solutions rationnelles, il est n
 Un nombre rationnel est représenté par deux entiers : son numérateur et son dénominateur, supposés premiers entre eux. 
 $$r = \frac{p}{q}, \mbox{ avec} \ p \in \mathbb{Z}\ \mbox{et} \ q \in \mathbb{N}^*$$
 De cette façon, les nombres rationnels sont représentés de façon exacte (ça ne serait pas le cas en utilisant des flottants), et leurs numérateurs et dénominateurs peuvent être de taille arbitraire.
+À la fin de chaque calcul, pour s'assurer que le numérateur et le dénominateur d'un rationnel restent premiers entre eux (ce qui évite de ralentir les calculs en traînant des entiers énormes inutilement), ils sont divisés par leur PGCD.
 Il restait alors à écrire quelques fonctions pour manipuler ces rationnels : affectation, opérations de base, test d'égalité, initialisation/suppression... D'autres petites fonctions auraient raisonnablement pu être écrites, comme une comparaison entre deux rationnels, mais elles n'avaient pas vraiment d'utilité dans le cadre de ce travail.
-À la fin de chaque calcul, pour s'assurer que le numérateur et le dénominateur restent premiers entre eux (ce qui évite de ralentir les calculs en traînant des entiers énormes inutilement), ils sont divisés par leur PGCD.
-\subsection{Représentation des systèmes linéaires}
-Les systèmes sont représentés par une matrice d'entiers de GMP, qui est elle-même représentée par un type structuré contenant le nombre de lignes n, le nombre de colonnes m, un tableau (1D) contenant tous les coefficients (y compris le second membre). Le nombre de colonnes a initialement été rajouté dans l'optique de permettre de résoudre un système pour plusieurs seconds membres à la fois, mais cette idée n'a finalement pas vu le jour, et donc en pratique m = n+1.
-Pour accéder plus simplement aux coefficients du système, des fonctions ont été écrites pour lire et écrire des coefficients avec leur numéro de ligne et de colonne [mal dit].
-[Autres fonctions : initialisation/copie/suppression, vérification de solution, etc. (?)] [Réécrire cette partie...]
+Tout le code en lien avec cette implémentation se trouve dans les fichiers {\tt rationnels.c} et {\tt rationnels.h}.
+\subsection{Représentation des systèmes linéaires} \label{subsec:systemes}
+Les systèmes sont représentés par une matrice d'entiers de GMP, qui est elle-même représentée par un type structuré contenant le nombre de lignes {\tt n}, le nombre de colonnes {\tt m}, un tableau (1D) contenant tous les coefficients (y compris le second membre). Le nombre de colonnes a initialement été rajouté dans l'optique de permettre de résoudre un système pour plusieurs seconds membres à la fois, mais cette idée n'a finalement pas vu le jour, et donc en pratique {\tt m} = {\tt n+1}.
+Pour accéder plus simplement aux coefficients du système, des fonctions {\tt lit\_coeff} et {\tt ecrit\_coeff} ont été écrites pour accéder aux coefficients du système à partir de leur numéro de ligne et de colonne.
+D'autres fonctions ont été écrites pour afficher un système dans le terminal, vérifier si un vecteur est solution d'un système, ou encore pour initialiser, copier ou détruire la structure de système... Toutes ces fonctions sont dans les fichiers {\tt systemes.c} et {\tt systemes.h}.
 \subsection{Représentation des éléments de $\mathbb{Z}/p\mathbb{Z}$}
-[Entiers machine] [Cette section va être très courte, et sera-t-elle vraiment utile ?]
-\section{Mesures de temps de calcul}
+Les nombres premiers p que l'on choisit pour les calculs dans $\mathbb{Z}/p\mathbb{Z}$ s'écrivent sur 30 bits (pas 31, pour éviter un dépassement d'entiers en faisant des sommes), donc les éléments de $\mathbb{Z}/p\mathbb{Z}$ peuvent être représentés par des entiers signés de 32 bits (c'est-à-dire des {\tt int}).
+Les additions et soustractions sont effectuées en utilisant les opérations natives, puis en ajoutant ou enlevant $p$ de sorte à ce que le résultat soit dans $\llbracket0,p-1\rrbracket$.
+Les multiplications sont effectuées de façon semblable, en multipliant d'abord les opérandes (il faut alors stocker ce résultat intermédiaire dans un {\tt long int} pour éviter un dépassement d'entiers) et en effectuant une division euclidienne par $p$.
+L'inverse modulaire est calculé à l'aide de l'algorithme d'Euclide étendu.
+\newline
+En revanche, en général, pour $\mathbb{Z}/n\mathbb{Z}$ avec $n$ grand, on représente les éléments par des entiers de la librairie GMP.
+\section{Mesures du temps de calcul}
+\section{Références}
+[Documentation de GMP, page d'algos de Xcas, ma page Github, ...]
 \end{document}
