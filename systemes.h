@@ -24,5 +24,6 @@ void affiche_systeme(systeme* s,FILE* f);
 void sol_syst_echelonne(systeme* s, rationnel* sol);
 bool verif_sol(systeme* s,rationnel* sol);
 void echange_lignes(systeme* s,int i1,int i2);
+bool sol_egales(rationnel* sol1,rationnel* sol2,int n);
 
 #endif

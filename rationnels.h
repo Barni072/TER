@@ -1,6 +1,7 @@
 #ifndef RATIONNELS_H
 #define RATIONNELS_H
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <gmp.h>
 

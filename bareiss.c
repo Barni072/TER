@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdlib.h>
 #include <gmp.h>
 #include "systemes.h"
 
@@ -60,10 +61,11 @@ void bareiss_old(systeme* s){
 	mpz_init(ik);
 	mpz_init(kj);
 	for(int k = 0;k < n-1;k++){
+		// Valeur du pivot précédent
 		if(k == 0) mpz_set_si(d,1);
 		else lit_coeff(d,s,k-1,k-1);
-		// Recherche du plus petit (en valeur absolue) pivot possible :
-		int knew = k;	// Indice de ligne du pivot qui sera choisi
+		// Recherche du plus petit (en valeur absolue) pivot possible (non nul) :
+		int k_new = k;	// Indice de ligne du pivot qui sera choisi
 		lit_coeff(p,s,k,k);
 		//mpz_out_str(stderr,10,p);fputc('\n',stderr);	// DEBUG
 		mpz_abs(p,p);
@@ -71,12 +73,16 @@ void bareiss_old(systeme* s){
 			lit_coeff(e,s,l,k);
 			mpz_abs(e,e);
 			if((mpz_cmp(p,e) > 0) && (mpz_cmp_ui(e,0) != 0)){
-				knew = l;
+				k_new = l;
 				mpz_set(p,e);
 			}
 		}
-		echange_lignes(s,k,knew);	// Échange de lignes pour avoir le plus petit pivot possible (non nul)
+		echange_lignes(s,k,k_new);	// Échange de lignes pour avoir le plus petit pivot possible (non nul)
 		lit_coeff(p,s,k,k);	// On doit lire le pivot à nouveau, car ce qui était précédemment stocké dans p ne prenait pas compte du signe
+		if(mpz_cmp_ui(p,0) == 0){	// ie si tous les "candidats pivots" sont nuls
+			fprintf(stderr,"BAREISS : Pas de %d-ième pivot non nul, le système n'est pas de Cramer, abandon.\n",k+1);
+			exit(1);
+		}
 		//mpz_out_str(stderr,10,p);fputc('\n',stderr);fputc('\n',stderr);// DEBUG
 		// Pour chaque pivot, on va modifier tous les coeffs "en bas à droite" du pivot, y compris ceux dans le second membre
 		for(int i = k+1;i < n;i++){

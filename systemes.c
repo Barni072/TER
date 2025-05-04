@@ -164,3 +164,11 @@ bool verif_sol(systeme* s,rationnel* sol){
 	rat_clear(&tmp2);
 	return res;
 }
+
+bool sol_egales(rationnel* sol1,rationnel* sol2,int n){
+	bool res = true;
+	for(int i = 0;i < n;i++){
+		res = res && rat_comp(sol1[i],sol2[i]);
+	}
+	return res;
+}

@@ -105,14 +105,21 @@ void gauss_ech(sys_rat* sr){
 	rat_init(&b);
 	rat_init(&c);
 	for(int k = 0;k < n-1;k++){
+		// Recherche d'un pivot non nul
 		for(int l = k;l < n;l++){
 			lit_coeff_rat(p,sr,l,k);
-			if(!rat_comp_int(p,0)){
+			if((!rat_comp_int(p,0)) && (l > k)){
 				echange_lignes_rat(sr,k,l);
 				break;
 			}
-			//else fputc('!',stderr);	// DEBUG
 		}
+		// Vérification de la "non nullité" du pivot
+		lit_coeff_rat(p,sr,k,k);
+		if(rat_comp_int(p,0)){
+			fprintf(stderr,"GAUSS : Pas de %d-ième pivot non nul, le système n'est pas de Cramer, abandon.\n",k+1);
+			exit(1);
+		}
+		// "Pivotage"
 		for(int i = k+1;i < n;i++){
 			lit_coeff_rat(ik,sr,i,k);
 			rat_div(a,ik,p);

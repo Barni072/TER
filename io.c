@@ -12,7 +12,6 @@ void init_lit_systeme(systeme* s,char* nom){
 	FILE* f = fopen(nom,"r");
 	assert(f != NULL);
 	int n,m;
-	long int c;
 	fscanf(f,"%d",&n);
 	fscanf(f,"%d",&m);
 	s->n = n;
@@ -41,7 +40,7 @@ void ecrit_fichier_au_pif(char* nom,int n,gmp_randstate_t state,mp_bitcnt_t b){
 	for(int i = 0;i < n;i++){
 		for(int j = 0;j < m;j++){
 			// Donne à c une valeur tirée uniformément entre 0 et (2^(b-1))-1
-			mpz_urandomb(c,state,b);
+			mpz_urandomb(c,state,b-1);
 			// Transforme c en nombre négatif (c <- -1-c) avec une probabilité 1/2
 			mpz_urandomb(rnd,state,1);
 			if(mpz_cmp_ui(rnd,0) == 0){
