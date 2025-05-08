@@ -15,11 +15,11 @@
 #include "mod_thrd.h"
 
 //#define GAUSS
-//#define BAREISS
+#define BAREISS
 //#define ZPZ
 //#define MOD_OLD
 #define MOD
-#define MOD_DETS
+//#define MOD_DETS
 //#define MOD_PARA
 
 #define THR 8
@@ -41,7 +41,7 @@ int main(){
 	init_copie_systeme(&s_ini,&s);	// Copie qui servira à conserver le système initial, pour pouvoir tester notre solution à la fin (sera aussi donnée à l'algo de Gauss sur les rationnels et à zpz_thrd, car ils ne le modifieront pas)
 	rationnel* sol_g = malloc(n*sizeof(rationnel));		// Contiendra la solution donnée par l'algorithme de Gauss
 	rationnel* sol_b = malloc(n*sizeof(rationnel));		// Contiendra la solution donnée par l'algorithme de Bareiss
-	rationnel* sol_mo = malloc(n*sizeof(rationnel));		// Contiendra la solution obtenue par méthode modulaire (ancienne variante) (MOD_OLD)
+	rationnel* sol_mo = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (ancienne variante) (MOD_OLD)
 	rationnel* sol_mp = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version en parallèle) (MOD_PARA)
 	rationnel* sol_mh = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec borne de Hadamard) (MOD)
 	rationnel* sol_md = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec déterminants (et borne de Hadamard)) (MOD_DETS)
@@ -136,10 +136,10 @@ int main(){
 	modulaire_old(&s_ini,sol_mo,state,30);
 	fin = clock();
 	mod_old_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
-	for(int i = 0;i < n;i++){
+	/*for(int i = 0;i < n;i++){
 		rat_aff(sol_mo[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
 #endif
 	
 #ifdef MOD
@@ -149,10 +149,10 @@ int main(){
 	modulaire(&s_ini,sol_mh,state,30);
 	fin = clock();
 	mod_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
-	for(int i = 0;i < n;i++){
+	/*for(int i = 0;i < n;i++){
 		rat_aff(sol_mh[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
 #endif
 
 #ifdef MOD_DETS
@@ -175,26 +175,26 @@ int main(){
 	modulaire_thrd(&s_ini,sol_mp,state,30,THR);
 	fin = clock();
 	mod_para_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
-	/*for(int i = 0;i < n;i++){
+	for(int i = 0;i < n;i++){
 		rat_aff(sol_mp[i],f);
 		fprintf(f,"\n");
-	}*/
+	}
 #endif	
 	fputc('\n',f);
 	
 #ifdef GAUSS
-	// Vérifications (Gauss)
-	assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
 	// Temps d'exécution :
 	fprintf(f,"Temps (Gauss) : %lf s\n",gauss_tps);
+	// Vérifications (Gauss)
+	assert(verif_sol(&s_ini,sol_g));	// Vérif sur le système de départ
 #endif
 	
 #ifdef BAREISS
+	// Temps d'exécution :
+	fprintf(f,"Temps (Bareiss) : %lf s\n",bareiss_tps);
 	// Vérifications (Bareiss)
 	assert(verif_sol(&s,sol_b));		// Vérif "triviale"
 	assert(verif_sol(&s_ini,sol_b));		// Vérif sur le systeme de départ
-	// Temps d'exécution :
-	fprintf(f,"Temps (Bareiss) : %lf s\n",bareiss_tps);
 #endif
 	
 #ifdef ZPZ
@@ -204,31 +204,31 @@ int main(){
 #endif
 	
 #ifdef MOD_OLD
-	// Vérification (ancienne méthode modulaire)
-	assert(verif_sol(&s_ini,sol_mo));		// Vérif sur le système de départ
 	// Temps d'exécution :
 	fprintf(f,"Temps (Ancienne méthode modulaire) : %lf s\n",mod_old_tps);
+	// Vérification (ancienne méthode modulaire)
+	assert(verif_sol(&s_ini,sol_mo));		// Vérif sur le système de départ
 #endif
 	
 #ifdef MOD
-	// Vérification (méthode modulaire)
-	assert(verif_sol(&s_ini,sol_mh));
 	// Temps d'exécution :
 	fprintf(f,"Temps (Méthode modulaire) : %lf s\n",mod_tps);
+	// Vérification (méthode modulaire)
+	assert(verif_sol(&s_ini,sol_mh));
 #endif
 
 #ifdef MOD_DETS
-	// Vérifications (Gauss)
-	assert(verif_sol(&s_ini,sol_md));	// Vérif sur le système de départ
 	// Temps d'exécution :
 	fprintf(f,"Temps (Méthode modulaire avec déterminants) : %lf s\n",mod_dets_tps);
+	// Vérifications (Gauss)
+	assert(verif_sol(&s_ini,sol_md));	// Vérif sur le système de départ
 #endif
 
 #ifdef MOD_PARA
-	// Vérification (méthode modulaire en parallèle)
-	assert(verif_sol(&s_ini,sol_mp));		// Vérif sur le système de départ
 	// Temps d'exécution :
 	fprintf(f,"Temps (Méthode modulaire en parallèle) : %lf s\n",mod_para_tps);
+	// Vérification (méthode modulaire en parallèle)
+	assert(verif_sol(&s_ini,sol_mp));		// Vérif sur le système de départ
 #endif
 
 	

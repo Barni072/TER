@@ -137,7 +137,45 @@ int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b){
 // Calcule l'image réciproque de (x1,x2) (dans Z/(n1*n2)Z) par l'isomorphisme des restes chinois
 // Écrit le résultat dans res, et nécessite d'avoir déjà établi une relation de Bézout : n1*u + n2*v == 1
 // Fonctionne correctement si l'une des opérandes est aussi l'emplacement du résultat
-void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
+// Calcul plus rapide dans le cas où n1 >> n2
+// Le résultat n'est pas nécessairement entre 0 et n1*n2-1, ni entre -n1*n2/2 et n1*n2/2
+void chinois_interne(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u){
+	mpz_sub(res,x2,x1);
+	mpz_mul(res,res,u);
+	mpz_tdiv_r(res,res,n2);
+	mpz_mul(res,res,n1);
+	mpz_add(res,x1,res);
+	
+	return;
+}
+
+// Appelle la fonction précédente et "convertit" le résultat pour qu'il soit entre 0 et n1*n1-1
+void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u){
+	chinois_interne(res,x1,x2,n1,n2,u);
+	if(mpz_cmp_si(res,0) < 0){	// On veut un résultat entre 0 et n1*n2-1 (est-ce vraiment important ?)
+		mpz_t n1n2;
+		mpz_init(n1n2);
+		mpz_mul(n1n2,n1,n2);
+		mpz_add(res,res,n1n2);
+		mpz_clear(n1n2);
+	}
+	return;
+}
+
+// Établit une relation de Bézout n1*u +n2*v == 1, et appelle la fonction précédente sur les n premières cases des tableaux res, x1 et x2
+void chinois_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2){
+	mpz_t u;
+	mpz_init(u);
+	mpz_gcdext(NULL,u,NULL,n1,n2);	// NULL car le PGCD ne nous intéresse pas (il vaudra toujours 1), et v non plus (il ne sera pas utilisé)
+	for(int i = 0;i < n;i++){
+		chinois(res[i],x1[i],x2[i],n1,n2,u);
+	}
+	mpz_clear(u);
+	return;
+}
+
+// Anciennes versions de ce qui précède
+void chinois_old(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
 	mpz_t t1,t2,n1n2;
 	mpz_init_set(t1,x1);
 	mpz_init_set(t2,x2);
@@ -154,57 +192,20 @@ void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
 	mpz_clear(n1n2);
 	return;
 }
-
-// Calcule l'image réciproque de (x1,x2) (dans Z/(n1*n2)Z) par l'isomorphisme des restes chinois
-// Écrit le résultat dans res, et nécessite d'avoir déjà établi une relation de Bézout : n1*u + n2*v == 1
-// Fonctionne correctement si l'une des opérandes est aussi l'emplacement du résultat
-// Calcul plus rapide dans le cas où n1 >> n2 (ATTENTION, cette version de la fonction ne fonctionne pas...)
-// Il n'y a en fait pas besoin de v
-void chinois_new(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
-	mpz_t t1,t2,n1n2;
-	mpz_init(t1);
-	mpz_init(t2);
-	mpz_init(n1n2);
-	mpz_mul(n1n2,n1,n2);
-	mpz_mul(t1,x1,n2);
-	mpz_mul(t1,t1,v);
-	mpz_mul(t2,x2,n1);
-	mpz_mul(t2,t2,u);
-	mpz_add(res,t1,t2);
-	mpz_fdiv_r(res,res,n1n2);
-	mpz_clear(t1);
-	mpz_clear(t2);
-	mpz_clear(n1n2);
-	mpz_out_str(stderr,10,res);
-	fputc('\n',stderr);
-	
-	//res = x1 + ((x2-x1)*u mod n2) n1
-	mpz_sub(res,x2,x1);
-	mpz_mul(res,res,u);
-	mpz_tdiv_r(res,res,n2);
-	mpz_add(res,x1,res);
-	mpz_mul(res,res,n1);
-	mpz_out_str(stderr,10,res);
-	fprintf(stderr,"\n\n");
-	
-	return;
-}
-
-// Établit une relation de Bézout n1*u +n2*v == 1, et appelle la fonction précédente sur les n premières cases des tableaux res, x1 et x2
-void chinois_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2){
+void chinois_n_old(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2){
 	mpz_t u,v;
 	mpz_init(u);
 	mpz_init(v);
 	mpz_gcdext(NULL,u,v,n1,n2);	// NULL car le PGCD ne nous intéresse pas (il vaudra toujours 1)
 	for(int i = 0;i < n;i++){
-		chinois(res[i],x1[i],x2[i],n1,n2,u,v);
+		chinois_old(res[i],x1[i],x2[i],n1,n2,u,v);
 	}
 	mpz_clear(u);
 	mpz_clear(v);
 	return;
 }
 
-// Une autre implémentation de l'algorithme d'Euclide étendu
+// Une autre implémentation de l'algorithme d'Euclide étendu, utilisée pour la reconstruction rationnelle
 // S'arrête dès que le reste est plus petit que sqrt(a), et utilise des mpz_t
 // Ne calcule que les rk et les vk (pas les uk)
 void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b){
@@ -267,7 +268,7 @@ void hadamard(mpz_t res,systeme* s){
 	mpz_init(norm2);
 	mpz_init(tmp);
 	mpz_init(coeff);
-	for(int j = 0;j < m;j++){	// Ici, on prend aussi en compte le second membre, est-ce bien raisonnable ?
+	for(int j = 0;j < m;j++){	// On prend aussi en compte le second membre
 		// Calcul de la norme 2 d'une colonne
 		mpz_set_si(tmp,0);
 		for(int i = 0;i < n;i++){
@@ -275,7 +276,7 @@ void hadamard(mpz_t res,systeme* s){
 			mpz_addmul(tmp,coeff,coeff);
 		}
 		mpz_sqrt(norm2,tmp);
-		mpz_add_ui(norm2,norm2,1);	// Suspect, permet d'avoir un résultat >= (et non <=) à la "vraie" borne de Hadamard, tout en gardant seulement des entiers
+		mpz_add_ui(norm2,norm2,1);	// Permet d'avoir un résultat >= (au lieu de <=) à la "vraie" borne de Hadamard, tout en gardant seulement des entiers
 		mpz_mul(res,res,norm2);
 	}
 	mpz_clear(norm2);
@@ -370,7 +371,7 @@ void modulaire_old(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b
 		}
 		// Restes chinois avec les solutions précédentes
 		debut = clock();	// DEBUG
-		chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,p_mpz,prod_old);
+		chinois_n(n,sol_tmp,sol_tmp_old,sol_zpz_m,prod_old,p_mpz);
 		// Construction modulaire d'un candidat solution
 		fin = clock();	// DEBUG
 		chinois_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
@@ -415,7 +416,6 @@ void modulaire_old(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b
 	return;
 }
 
-// Version avec borne de Hadamard, et une seule reconstruction rationelle
 void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	// INITIALISATION
 	int j = 1;		// DEBUG, nombre d'itérations effectuées
@@ -428,7 +428,7 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	int* sol_zpz = malloc(n*sizeof(int));	// Emplacement de la solution dans Z/pZ que zpz_resol va calculer
 	mpz_t* sol_zpz_m = malloc(n*sizeof(mpz_t));	// De même, pour la solution convertie en mpz
 	mpz_t* sol_tmp = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on va essayer de reconstruire une solution
-	mpz_t* sol_tmp_old = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on a essayé de reconstruire une solution à l'itération précédente
+	mpz_t* sol_tmp_old = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on a essayé de reconstruire une solution à l'itération précédente		(Ne pas essayer de l'enlever, ou bien les restes chinois foireront !)
 	mpz_t p_mpz,prod_old,prod,u,v,hada;
 	int p;		// Nombre premier "en cours d'utilisation", version machine
 	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
@@ -475,7 +475,6 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 		mpz_mul(prod,prod,p_mpz);
 		// Copie du précédent candidat solution sur l'emplacement de l'ancien
 		for(int i = 0;i < n;i++){
-			//rat_set(sol_old[i],sol[i]);
 			mpz_set(sol_tmp_old[i],sol_tmp[i]);
 		}
 		// Calcul d'une solution dans Z/pZ
@@ -490,7 +489,7 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 		}
 		// Restes chinois avec les solutions précédentes
 		debut = clock();	// DEBUG
-		chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,p_mpz,prod_old);
+		chinois_n(n,sol_tmp,sol_tmp_old,sol_zpz_m,prod_old,p_mpz);
 		fin = clock();	// DEBUG
 		chinois_tps += ((double)(fin-debut))/CLOCKS_PER_SEC;	// DEBUG
 		// MàJ de prod_old

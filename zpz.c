@@ -15,7 +15,7 @@ int zpz_sub(int x,int y,int p){
 	return res;
 }
 int zpz_mul(int x,int y,int p){
-	long int lres = (long int)x * (long int)y;	// On a besoin d'un long int ici, sinon les calculs cassent
+	long int lres = (long int)x * y;	// On a besoin d'un long int ici, sinon les calculs cassent
 	int res = lres % p;	// Attention, % n'est pas exactement le modulo
 	res = res + p*(res < 0);
 	return res;
@@ -77,7 +77,7 @@ int zpzs_sub(int x,int y,int p){
 	return res - p*(res > (p/2)) + p*(res < -(p/2));
 }
 int zpzs_mul(int x,int y,int p){
-	long int lres = (long int)x * (long int)y;
+	long int lres = (long int)x * y;
 	int res = lres%p;
 	return res - p*(res > (p/2)) + p*(res < -(p/2));
 }

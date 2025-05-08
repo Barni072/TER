@@ -27,8 +27,11 @@ void zpz_resol(syst_zpz* s,int* sol);
 
 int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b);
 
-//void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v);
+void chinois_interne(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u);
+//void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u);
 void chinois_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2);
+//void chinois_old(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v);
+//void chinois_old_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2);
 
 void euclide_etendu_borne(mpz_t r,mpz_t v,mpz_t a,mpz_t b);
 void hadamard(mpz_t res,systeme* s);
