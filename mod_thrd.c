@@ -113,7 +113,8 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	// Restes chinois pour obtenir une solution dans Z/prod_actZ
 	// Pour la première itération, il n'y a pas d'autres restes chinois à utiliser, et on peut donc mettre directement le résultat dans sol_tmp
 	for(int t = 1;t < thr;t++){
-		chinois_n(n,sol_tmp,&(sol_zpz_m[t*n]),sol_tmp,p_mpz[t],prod_act);
+		chinois_old_n(n,sol_tmp,&(sol_zpz_m[t*n]),sol_tmp,p_mpz[t],prod_act);
+		// On appelle ici l'ancienne version des restes chinois, car les tailles de p_mpz[t] et de prod_act ne sont pas trop différentes, et surtout car l'emplacement du résultat est le même que celui d'un des arguments (la nouvelle version des restes chinois n'aime pas ça)
 		mpz_mul(prod_act,prod_act,p_mpz[t]);
 	}
 	
@@ -206,11 +207,12 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 		// Restes chinois pour obtenir une solution dans Z/prod_actZ
 		// Le résultat est écrit dans sol_zpz_m (cases 0 à n-1) (ie sol_zpz_m[0] vu comme un tableau de taille n, bref)
 		for(int t = 1;t < thr;t++){
-			chinois_n(n,sol_zpz_m,&(sol_zpz_m[t*n]),sol_zpz_m,p_mpz[t],prod_act);
+			chinois_old_n(n,sol_zpz_m,&(sol_zpz_m[t*n]),sol_zpz_m,p_mpz[t],prod_act);
 			mpz_mul(prod_act,prod_act,p_mpz[t]);
 		}
 		// Restes chinois avec les solutions précédentes
-		chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,prod_act,prod_old);
+		//chinois_n(n,sol_tmp,sol_zpz_m,sol_tmp_old,prod_act,prod_old);
+		chinois_n(n,sol_tmp,sol_tmp_old,sol_zpz_m,prod_old,prod_act);
 		// Construction modulaire d'un candidat solution		// NON
 		/*for(int i = 0;i < n;i++){
 			euclide_etendu_borne(r,v,prod,sol_tmp[i]);

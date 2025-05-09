@@ -14,13 +14,13 @@
 #include "mod_dets.h"
 #include "mod_thrd.h"
 
-//#define GAUSS
+#define GAUSS
 #define BAREISS
 //#define ZPZ
-//#define MOD_OLD
+#define MOD_OLD
 #define MOD
 //#define MOD_DETS
-//#define MOD_PARA
+#define MOD_PARA
 
 #define THR 8
 
@@ -30,12 +30,21 @@ int main(){
 	gmp_randstate_t state;
 	gmp_randinit_default(state);
 	gmp_randseed_ui(state,time(NULL));
-	//ecrit_fichier_au_pif("systeme2.txt",50,state,512);		// Les résultats dépassent du terminal
-	ecrit_fichier_au_pif("systeme2.txt",5,state,96);
+	//ecrit_fichier_au_pif("systeme2.txt",5,state,96);
+	//ecrit_fichier_au_pif("systeme3.txt",5,state,512);
+	//ecrit_fichier_au_pif("systeme4.txt",5,state,2048);
+	//ecrit_fichier_au_pif("systeme5.txt",50,state,96);
+	//ecrit_fichier_au_pif("systeme6.txt",50,state,512);
+	//ecrit_fichier_au_pif("systeme7.txt",50,state,2048);
+	//ecrit_fichier_au_pif("systeme8.txt",200,state,96);
+	//ecrit_fichier_au_pif("systeme9.txt",200,state,512);
+	//ecrit_fichier_au_pif("systeme10.txt",50,state,12);
+	//ecrit_fichier_au_pif("systeme11.txt",200,state,12);
+	//ecrit_fichier_au_pif("systeme12.txt",700,state,12);
 	systeme s,s_ini;
 	syst_zpz s_zpz,s_zpzv;
 	//init_lit_systeme(&s,"systeme.txt");
-	init_lit_systeme(&s,"systeme2.txt");
+	init_lit_systeme(&s,"systeme5.txt");
 	int n = s.n;		// Nombre de lignes
 	//int m = s.m;		// Nombre de colonnes, en comptant le second membre (en pratique : m = n+1)
 	init_copie_systeme(&s_ini,&s);	// Copie qui servira à conserver le système initial, pour pouvoir tester notre solution à la fin (sera aussi donnée à l'algo de Gauss sur les rationnels et à zpz_thrd, car ils ne le modifieront pas)
@@ -56,7 +65,8 @@ int main(){
 	}
 	mpz_t p_mpz;
 	mpz_init(p_mpz);
-	int p = genere_p(p_mpz,state,30);
+	//int p = genere_p(p_mpz,state,30);
+	int p = 701;
 	init_copie_syst_zpz(&s_zpz,&s_ini,p);	// Copie du système sur laquelle l'aglo de Gauss dans Z/pZ sera testé
 	init_copie_syst_zpz(&s_zpzv,&s_ini,p);	// Copie du système qui servira à conserver le résultat initial modulo p (pour tester le résultat)
 	clock_t debut,fin;		// Pour les mesures de temps
@@ -106,12 +116,12 @@ int main(){
 	sol_syst_echelonne(&s,sol_b);
 	fin = clock();
 	bareiss_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
-	affiche_systeme(&s,f);		// Système échelonné
+	//affiche_systeme(&s,f);		// Système échelonné
 	fprintf(f,"\n\nSOLUTION (BAREISS) :\n");
-	for(int i = 0;i < n;i++){
+	/*for(int i = 0;i < n;i++){
 		rat_aff(sol_b[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
 #endif
 	
 #ifdef ZPZ
@@ -175,10 +185,10 @@ int main(){
 	modulaire_thrd(&s_ini,sol_mp,state,30,THR);
 	fin = clock();
 	mod_para_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
-	for(int i = 0;i < n;i++){
+	/*for(int i = 0;i < n;i++){
 		rat_aff(sol_mp[i],f);
 		fprintf(f,"\n");
-	}
+	}*/
 #endif	
 	fputc('\n',f);
 	

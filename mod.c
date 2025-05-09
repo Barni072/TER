@@ -192,7 +192,7 @@ void chinois_old(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u,mpz_t v){
 	mpz_clear(n1n2);
 	return;
 }
-void chinois_n_old(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2){
+void chinois_old_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2){
 	mpz_t u,v;
 	mpz_init(u);
 	mpz_init(v);

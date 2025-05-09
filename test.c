@@ -15,7 +15,7 @@
 #include "mod_thrd.h"
 
 int main(){
-	int p = 4999;
+	/*int p = 4999;
 	int q = 1307;
 	// REPRÉSENTATION SYMÉTRIQUE DE Z/pZ
 	assert(zpzs_add(0,1,3) == 1);
@@ -72,6 +72,7 @@ int main(){
 	mpz_clear(v);
 	mpz_clear(m);
 	mpz_clear(n);
-	mpz_clear(mn);
+	mpz_clear(mn);*/
+	fprintf(stderr,"%ld\n",CLOCKS_PER_SEC);
 	return 0;
 }

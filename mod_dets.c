@@ -195,7 +195,7 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
 	mpz_init(prod_old);		// Produit des nombres premiers précédemment utilisés (sans p_mpz)
 	mpz_init(prod);			// Produit des nombres premiers précédemment utilisés (avec p_mpz) -> pendant une itération, prod == p*prod_old
-	mpz_init(hada);		// Contiendra (le carré du double de) la borne de Hadamard du système
+	mpz_init(hada);		// Contiendra (le double de) la borne de Hadamard du système
 	mpz_init(det);		// Contiendra le déterminant de sz (dans Z/pZ)
 	for(int i = 0;i < n+1;i++){
 		mpz_init(dets_mpz[i]);
