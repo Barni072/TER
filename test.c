@@ -15,28 +15,30 @@
 #include "mod_thrd.h"
 
 int main(){
-	/*int p = 4999;
-	int q = 1307;
+	long int p = 4999;
+	//long int q = 1307;
 	// REPRÉSENTATION SYMÉTRIQUE DE Z/pZ
 	assert(zpzs_add(0,1,3) == 1);
 	assert(zpzs_add(2,2,5) == -1);
 	assert(zpzs_mul(2,2,5) == -1);
-	for(int x = 0;x < p;x++){
-		for(int y = 0;y < p;y++){
+	for(long int x = 0;x < p;x++){
+		for(long int y = 0;y < p;y++){
 			//fprintf(stderr,"%d %d\n",x,y);
 			assert(zpz_add(x,y,p) == zpz_from_zpzs(zpzs_add(zpzs_from_zpz(x,p),zpzs_from_zpz(y,p),p),p));
 			assert(zpz_sub(x,y,p) == zpz_from_zpzs(zpzs_sub(zpzs_from_zpz(x,p),zpzs_from_zpz(y,p),p),p));
 			assert(zpz_mul(x,y,p) == zpz_from_zpzs(zpzs_mul(zpzs_from_zpz(x,p),zpzs_from_zpz(y,p),p),p));
 		}
 	}
-	for(int x = -p/2;x < p/2;x++){
-		for(int y = -p/2;y < p/2;y++){
+	for(long int x = -p/2;x < p/2;x++){
+		for(long int y = -p/2;y < p/2;y++){
 			//fprintf(stderr,"%d %d\n",x,y);
 			assert(zpzs_add(x,y,p) == zpzs_from_zpz(zpz_add(zpz_from_zpzs(x,p),zpz_from_zpzs(y,p),p),p));
 			assert(zpzs_sub(x,y,p) == zpzs_from_zpz(zpz_sub(zpz_from_zpzs(x,p),zpz_from_zpzs(y,p),p),p));
 			assert(zpzs_mul(x,y,p) == zpzs_from_zpz(zpz_mul(zpz_from_zpzs(x,p),zpz_from_zpzs(y,p),p),p));
 		}
 	}
+	fprintf(stderr,"Test conversion Z/pZ OK\n");
+	/*
 	// RESTES CHINOIS AMÉLIORÉS
 	mpz_t res1,res2,res3,x,y,u,v,m,n,mn;
 	mpz_init(res1);
@@ -73,6 +75,6 @@ int main(){
 	mpz_clear(m);
 	mpz_clear(n);
 	mpz_clear(mn);*/
-	fprintf(stderr,"%ld\n",CLOCKS_PER_SEC);
+	//fprintf(stderr,"%ld\n",CLOCKS_PER_SEC);
 	return 0;
 }

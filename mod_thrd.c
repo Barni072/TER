@@ -36,13 +36,13 @@ void modulaire_thrd(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	int n = s -> n;
 	int j = 1; // DEBUG, nombre d'itérations effectuées
 	syst_zpz* sz = malloc(sizeof(syst_zpz)*thr);	// On va initialiser/copier et détruire ce système à chaque itération
-	int* p = malloc(sizeof(int)*thr);
+	long int* p = malloc(sizeof(long int)*thr);
 	mpz_t* p_mpz = malloc(sizeof(mpz_t)*thr);
 	mpz_t prod;		// Produit de tous les nombres premiers utilisés jusqu'à présent (y compris ceux de l'étape en cours)
 	mpz_t prod_old;	// Produit de tous les nombres premiers utilisés jusqu'à présent (sans ceux de l'étape en cours)
 	mpz_t prod_act;	// Produit des nombres premiers utilisés à l'étape en cours (sans ceux d'avant)
 	mpz_t r,v,hada;
-	int* sol_zpz = malloc(n*sizeof(int)*thr);	// Emplacement des solutions dans Z/pZ que zpz_resol va calculer
+	long int* sol_zpz = malloc(n*sizeof(long int)*thr);	// Emplacement des solutions dans Z/pZ que zpz_resol va calculer
 	mpz_t* sol_zpz_m = malloc(n*sizeof(mpz_t)*thr);	// De même, pour les solutions converties en mpz_t
 	//mpz_t* sol_act = malloc(n*sizeof(mpz_t));	// Emplacement de la solution dans Z/prod_actZ, construite à partir des thr solutions de sol_zpz_m
 	mpz_t* sol_tmp = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on va essayer de reconstruire une solution (et que l'on a construit à partir de sol_zpz_m[0] et sol_tmp_old)

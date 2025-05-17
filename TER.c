@@ -14,13 +14,13 @@
 #include "mod_dets.h"
 #include "mod_thrd.h"
 
-#define GAUSS
+//#define GAUSS
 #define BAREISS
 //#define ZPZ
-#define MOD_OLD
+//#define MOD_OLD
 #define MOD
 //#define MOD_DETS
-#define MOD_PARA
+//#define MOD_PARA
 
 #define THR 8
 
@@ -43,8 +43,7 @@ int main(){
 	//ecrit_fichier_au_pif("systeme12.txt",700,state,12);
 	systeme s,s_ini;
 	syst_zpz s_zpz,s_zpzv;
-	//init_lit_systeme(&s,"systeme.txt");
-	init_lit_systeme(&s,"systeme5.txt");
+	init_lit_systeme(&s,"systs/systeme-n50c96.txt");
 	int n = s.n;		// Nombre de lignes
 	//int m = s.m;		// Nombre de colonnes, en comptant le second membre (en pratique : m = n+1)
 	init_copie_systeme(&s_ini,&s);	// Copie qui servira à conserver le système initial, pour pouvoir tester notre solution à la fin (sera aussi donnée à l'algo de Gauss sur les rationnels et à zpz_thrd, car ils ne le modifieront pas)
@@ -54,7 +53,7 @@ int main(){
 	rationnel* sol_mp = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version en parallèle) (MOD_PARA)
 	rationnel* sol_mh = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec borne de Hadamard) (MOD)
 	rationnel* sol_md = malloc(n*sizeof(rationnel));	// Contiendra la solution obtenue par méthode modulaire (version avec déterminants (et borne de Hadamard)) (MOD_DETS)
-	int* sol_zpz = malloc(n*sizeof(int));		// Contiendra la solution donnée par l'algorithme de Gauss dans Z/pZ
+	long int* sol_zpz = malloc(n*sizeof(long int));		// Contiendra la solution donnée par l'algorithme de Gauss dans Z/pZ
 	for(int i = 0;i < n;i++){
 		rat_init(&sol_b[i]);
 		rat_init(&sol_g[i]);
@@ -65,8 +64,8 @@ int main(){
 	}
 	mpz_t p_mpz;
 	mpz_init(p_mpz);
-	//int p = genere_p(p_mpz,state,30);
-	int p = 701;
+	long int p = genere_p(p_mpz,state,62);
+	//int p = 701;
 	init_copie_syst_zpz(&s_zpz,&s_ini,p);	// Copie du système sur laquelle l'aglo de Gauss dans Z/pZ sera testé
 	init_copie_syst_zpz(&s_zpzv,&s_ini,p);	// Copie du système qui servira à conserver le résultat initial modulo p (pour tester le résultat)
 	clock_t debut,fin;		// Pour les mesures de temps
@@ -127,14 +126,14 @@ int main(){
 #ifdef ZPZ
 	// Calcul d'une solution dans Z/pZ (avec p choisi "au hasard" avec à peu près 32 bits)
 	// Va très vite
-	fprintf(f,"\n\nSYSTÈME DE DÉPART MODULO P :\n(P = %d)\n",p);
+	fprintf(f,"\n\nSYSTÈME DE DÉPART MODULO P :\n(P = %ld)\n",p);
 	affiche_syst_zpz(&s_zpzv,f);
 	zpz_resol(&s_zpz,sol_zpz);
 	fprintf(f,"\nSYSTÈME ÉCHELONNÉ DANS Z/pZ :\n");
 	affiche_syst_zpz(&s_zpz,f);
 	fprintf(f,"\nSOLUTION dans Z/pZ :\n");
 	for(int i = 0;i < n;i++){
-		fprintf(f,"%d\n",sol_zpz[i]);
+		fprintf(f,"%ld\n",sol_zpz[i]);
 	}
 #endif
 	
@@ -143,7 +142,7 @@ int main(){
 	// Prend trop de temps, car la reconstruction d'une solution rationnelle est trop coûteuse et faite trop souvent
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE, ANCIENNE VERSION) :\n");
 	debut = clock();
-	modulaire_old(&s_ini,sol_mo,state,30);
+	modulaire_old(&s_ini,sol_mo,state,62);
 	fin = clock();
 	mod_old_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
 	/*for(int i = 0;i < n;i++){
@@ -156,7 +155,7 @@ int main(){
 	// Calcul d'une solution par méthode modulaire (alternative avec borne de Hadamard)
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE) :\n");
 	debut = clock();
-	modulaire(&s_ini,sol_mh,state,30);
+	modulaire(&s_ini,sol_mh,state,62);
 	fin = clock();
 	mod_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
 	/*for(int i = 0;i < n;i++){
@@ -169,7 +168,7 @@ int main(){
 	// Calcul d'une solution par méthode modulaire (alternative avec déterminants)
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE AVEC DÉTERMINANTS) :\n");
 	debut = clock();
-	modulaire_dets(&s_ini,sol_md,state,30);
+	modulaire_dets(&s_ini,sol_md,state,62);
 	fin = clock();
 	mod_dets_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
 	for(int i = 0;i < n;i++){
@@ -182,7 +181,7 @@ int main(){
 	// Calcul d'une solution par méthode modulaire en parallèle
 	fprintf(f,"\n\nSOLUTION (MÉTHODE MODULAIRE EN PARALLÈLE) :\n");
 	debut = clock();
-	modulaire_thrd(&s_ini,sol_mp,state,30,THR);
+	modulaire_thrd(&s_ini,sol_mp,state,62,THR);
 	fin = clock();
 	mod_para_tps = ((double)(fin-debut))/CLOCKS_PER_SEC;
 	/*for(int i = 0;i < n;i++){

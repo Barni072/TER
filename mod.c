@@ -8,7 +8,7 @@
 #include "mod.h"
 
 // Initialise le syst_zpz sdest, avec la copie du modulo p du systeme ssrc
-void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,int p){
+void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,long int p){
 	int n = ssrc->n;
 	int m = ssrc->m;
 	mpz_t pm,c;
@@ -17,7 +17,7 @@ void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,int p){
 	sdest -> n = n;
 	sdest -> m = m;
 	sdest -> p = p;
-	sdest -> t = malloc(sizeof(int)*n*m);
+	sdest -> t = malloc(sizeof(long int)*n*m);
 	for(int k = 0;k < n*m;k++){
 		mpz_fdiv_r(c,ssrc->t[k],pm);
 		sdest->t[k] = mpz_get_ui(c);
@@ -33,13 +33,13 @@ void detruit_syst_zpz(syst_zpz* s){
 }
 
 // Renvoie le coefficient (i,j) de s
-int lit_coeff_zpz(syst_zpz* s,int i,int j){
+long int lit_coeff_zpz(syst_zpz* s,int i,int j){
 	return s->t[i*(s->m) + j];
 }
 
 // Remplace le coefficient (i,j) de s par n
 // n est supposé compris entre 0 et (s->p - 1)
-void ecrit_coeff_zpz(syst_zpz* s,int i,int j,int n){
+void ecrit_coeff_zpz(syst_zpz* s,int i,int j,long int n){
 	s->t[i*(s->m) + j] = n;
 	return;
 }
@@ -50,21 +50,21 @@ void affiche_syst_zpz(syst_zpz* s,FILE* f){
 	for(int i = 0;i < n;i++){
 		// Affichage d'une ligne de coeffs
 		for(int j = 0;j < n;j++){
-			fprintf(f,"%d ",lit_coeff_zpz(s,i,j));
+			fprintf(f,"%ld ",lit_coeff_zpz(s,i,j));
 		}
 		// Affichage d'un coeff du second membre
-		fprintf(f,"  %d\n",lit_coeff_zpz(s,i,n));
+		fprintf(f,"  %ld\n",lit_coeff_zpz(s,i,n));
 	}
 	return;
 }
 
 // Vérifie si sol est une solution de s dans Z/pZ
 // Les coefficients de s doivent être compris entre 0 et p-1
-bool verif_sol_zpz(syst_zpz* s,int* sol){
+bool verif_sol_zpz(syst_zpz* s,long int* sol){
 	int n = s->n;
-	int p = s->p;
+	long int p = s->p;
 	bool res = true;
-	int som;
+	long int som;
 	for(int i = 0; i < n;i++){
 		som = 0;
 		for(int j = 0;j < n;j++){
@@ -79,9 +79,9 @@ bool verif_sol_zpz(syst_zpz* s,int* sol){
 // Les coefficients de s doivent être compris entre 0 et p-1
 void zpz_gauss(syst_zpz* s){
 	int n = s->n;
-	int p = s->p;
+	long int p = s->p;
 	//int ivp,a,b,c;
-	int ivp,a;
+	long int ivp,a;
 	// Échelonne le système
 	for(int k = 0;k < n;k++){
 		ivp = zpz_inv(lit_coeff_zpz(s,k,k),p);	// Inverse du pivot (le pivot est supposé non  nul)
@@ -103,9 +103,9 @@ void zpz_gauss(syst_zpz* s){
 
 // Copie dans sol la solution du système préalablement échelonné s
 // Les coefficients de s doivent être compris entre 0 et p-1
-void zpz_sol_syst_ech(int* sol,syst_zpz* s){
+void zpz_sol_syst_ech(long int* sol,syst_zpz* s){
 	int n = s->n;
-	int p = s->p;
+	long int p = s->p;
 	for(int k = n-1;k >= 0;k--){
 		sol[k] = lit_coeff_zpz(s,k,n);
 		for(int l = k+1;l < n;l++){
@@ -117,19 +117,19 @@ void zpz_sol_syst_ech(int* sol,syst_zpz* s){
 }
 
 // Écrit dans sol la solution du systeme s dans Z/pZ, en travaillant directement sur s
-void zpz_resol(syst_zpz* s,int* sol){
+void zpz_resol(syst_zpz* s,long int* sol){
 	zpz_gauss(s);
 	zpz_sol_syst_ech(sol,s);
 	return;
 }
 
 // Génére un nombre premier aléatoire d'au plus b bits, donne sa valeur à p, et le renvoie aussi (en tant qu'int)
-int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b){
+long int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b){
 	mpz_t k;
 	mpz_init(k);
 	mpz_urandomb(k,state,b);
 	mpz_nextprime(p,k);
-	int res = mpz_get_ui(p);
+	long int res = mpz_get_ui(p);
 	mpz_clear(k);
 	return res;
 }
@@ -295,13 +295,13 @@ void modulaire_old(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b
 	double reconstr_tps = 0.;
 	int n = s -> n;
 	syst_zpz sz;	// On va initialiser/copier et détruire ce système à chaque itération
-	int* sol_zpz = malloc(n*sizeof(int));	// Emplacement de la solution dans Z/pZ que zpz_resol va calculer
+	long int* sol_zpz = malloc(n*sizeof(long int));	// Emplacement de la solution dans Z/pZ que zpz_resol va calculer
 	mpz_t* sol_zpz_m = malloc(n*sizeof(mpz_t));	// De même, pour la solution convertie en mpz
 	mpz_t* sol_tmp = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on va essayer de reconstruire une solution
 	mpz_t* sol_tmp_old = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on a essayé de reconstruire une solution à l'itération précédente
 	rationnel* sol_old = malloc(n*sizeof(rationnel));	// Emplacement du candidat de solution de l'itération précédente (nécessaire pour s'arrêter quand on trouve la même solution 2 fois d'affilée)
 	mpz_t p_mpz,prod_old,prod,u,v;
-	int p;		// Nombre premier "en cours d'utilisation", version machine
+	long int p;		// Nombre premier "en cours d'utilisation", version machine
 	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
 	mpz_init(prod_old);		// Produit des nombres premiers précédemment utilisés (sans p_mpz)
 	mpz_init(prod);			// Produit des nombres premiers précédemment utilisés (avec p_mpz) -> pendant une itération, prod == p*prod_old
@@ -423,14 +423,14 @@ void modulaire(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t b){
 	double zpz_resol_tps = 0.;
 	double chinois_tps = 0.;
 	double reconstr_tps = 0.;
-	int n = s -> n;
+	long int n = s -> n;
 	syst_zpz sz;	// On va initialiser/copier et détruire ce système à chaque itération
-	int* sol_zpz = malloc(n*sizeof(int));	// Emplacement de la solution dans Z/pZ que zpz_resol va calculer
+	long int* sol_zpz = malloc(n*sizeof(long int));	// Emplacement de la solution dans Z/pZ que zpz_resol va calculer
 	mpz_t* sol_zpz_m = malloc(n*sizeof(mpz_t));	// De même, pour la solution convertie en mpz
 	mpz_t* sol_tmp = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on va essayer de reconstruire une solution
 	mpz_t* sol_tmp_old = malloc(n*sizeof(mpz_t));	// Contient ce à partir de quoi on a essayé de reconstruire une solution à l'itération précédente		(Ne pas essayer de l'enlever, ou bien les restes chinois foireront !)
 	mpz_t p_mpz,prod_old,prod,u,v,hada;
-	int p;		// Nombre premier "en cours d'utilisation", version machine
+	long int p;		// Nombre premier "en cours d'utilisation", version machine
 	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
 	mpz_init(prod_old);		// Produit des nombres premiers précédemment utilisés (sans p_mpz)
 	mpz_init(prod);			// Produit des nombres premiers précédemment utilisés (avec p_mpz) -> pendant une itération, prod == p*prod_old

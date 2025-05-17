@@ -11,7 +11,7 @@
 // Pour représenter les systèmes à coefficients dans Z/pZ en représentation symétrique, on utilise la même structure que dans zpz.h
 
 // L'initialisation doit être légèrement modifiée
-void init_copie_syst_zpzs(syst_zpzs* sdest,systeme* ssrc,int p){
+void init_copie_syst_zpzs(syst_zpzs* sdest,systeme* ssrc,long int p){
 	int n = ssrc->n;
 	int m = ssrc->m;
 	mpz_t pm,c;
@@ -20,7 +20,7 @@ void init_copie_syst_zpzs(syst_zpzs* sdest,systeme* ssrc,int p){
 	sdest -> n = n;
 	sdest -> m = m;
 	sdest -> p = p;
-	sdest -> t = malloc(sizeof(int)*n*m);
+	sdest -> t = malloc(sizeof(long int)*n*m);
 	for(int k = 0;k < n*m;k++){
 		mpz_fdiv_r(c,ssrc->t[k],pm);
 		sdest->t[k] = mpz_get_ui(c);
@@ -37,10 +37,10 @@ void detruit_syst_zpzs(syst_zpzs* s){
 	detruit_syst_zpz(s);
 	return;
 }
-int lit_coeff_zpzs(syst_zpzs* s,int i,int j){
+long int lit_coeff_zpzs(syst_zpzs* s,int i,int j){
 	return lit_coeff_zpz(s,i,j);
 }
-void ecrit_coeff_zpzs(syst_zpzs* s,int i,int j,int n){
+void ecrit_coeff_zpzs(syst_zpzs* s,int i,int j,long int n){
 	ecrit_coeff_zpz(s,i,j,n);
 	return;
 }
@@ -51,11 +51,11 @@ void affiche_syst_zpzs(syst_zpzs* s,FILE* f){
 
 
 
-bool verif_sol_zpzs(syst_zpzs* s,int* sol){
+bool verif_sol_zpzs(syst_zpzs* s,long int* sol){
 	int n = s->n;
-	int p = s->p;
+	long int p = s->p;
 	bool res = true;
-	int som;
+	long int som;
 	for(int i = 0; i < n;i++){
 		som = 0;
 		for(int j = 0;j < n;j++){
@@ -69,8 +69,8 @@ bool verif_sol_zpzs(syst_zpzs* s,int* sol){
 // Échelonne le système avec l'algorithme de Gauss
 void zpzs_gauss(syst_zpzs* s){
 	int n = s->n;
-	int p = s->p;
-	int ivp,a;
+	long int p = s->p;
+	long int ivp,a;
 	// Échelonne le système
 	for(int k = 0;k < n;k++){
 		ivp = zpzs_inv(lit_coeff_zpzs(s,k,k),p);	// Inverse du pivot (le pivot est supposé non  nul)
@@ -86,9 +86,9 @@ void zpzs_gauss(syst_zpzs* s){
 	return;
 }
 
-void zpzs_sol_syst_ech(int* sol,syst_zpzs* s){
+void zpzs_sol_syst_ech(long int* sol,syst_zpzs* s){
 	int n = s->n;
-	int p = s->p;
+	long int p = s->p;
 	for(int k = n-1;k >= 0;k--){
 		sol[k] = lit_coeff_zpzs(s,k,n);
 		for(int l = k+1;l < n;l++){
@@ -159,9 +159,9 @@ void chinois_sym_n(int n,mpz_t* res,mpz_t* x1,mpz_t* x2,mpz_t n1,mpz_t n2){
 }
 
 // Renvoie (ie écrit dans dets, qui est un tableau de taille s->n+1) le déterminant modulo s->p du système (en dernier), et les déterminants modulo s->p du système avec le 2nd membre à la place de chaque colonne (pas très clair)
-void zpzs_dets(int* dets,syst_zpzs* s){
+void zpzs_dets(long int* dets,syst_zpzs* s){
 	int n = s->n;
-	int p = s->p;
+	long int p = s->p;
 	// Échelonnage (ou "échelonnement" ?)
 	zpzs_gauss(s);
 	// Calcul du déterminant
@@ -186,12 +186,12 @@ void modulaire_dets(systeme* s,rationnel* sol,gmp_randstate_t state,mp_bitcnt_t 
 	double chinois_tps = 0.;
 	int n = s -> n;
 	syst_zpzs sz;	// On va initialiser/copier et détruire ce système à chaque itération
-	int* dets = malloc((n+1)*sizeof(int));		// Déterminants (dans Z/pZ, du système avec le second membre à la place de la 1ème colonne, puis du système sans modification (en position n)), version entiers machine
+	long int* dets = malloc((n+1)*sizeof(long int));		// Déterminants (dans Z/pZ, du système avec le second membre à la place de la 1ème colonne, puis du système sans modification (en position n)), version entiers machine
 	mpz_t* dets_mpz = malloc((n+1)*sizeof(mpz_t));		// Déterminants (dans Z/pZ, du système avec le second membre à la place de la 1ème colonne, puis du système sans modification (en position n)), version GMP
 	mpz_t* dets_tot = malloc((n+1)*sizeof(mpz_t));	// De même dans Z/prodZ
 	mpz_t* dets_tot_old = malloc((n+1)*sizeof(mpz_t));	// dets_tot de l'itération précédente
 	mpz_t p_mpz,prod_old,prod,hada,det;
-	int p;		// Nombre premier "en cours d'utilisation", version machine
+	long int p;		// Nombre premier "en cours d'utilisation", version machine
 	mpz_init(p_mpz);		// Nombre premier "en cours d'utilisation", version GMP
 	mpz_init(prod_old);		// Produit des nombres premiers précédemment utilisés (sans p_mpz)
 	mpz_init(prod);			// Produit des nombres premiers précédemment utilisés (avec p_mpz) -> pendant une itération, prod == p*prod_old

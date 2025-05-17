@@ -7,7 +7,7 @@
 // Argument de zpz_thrd (nécessaire à cause de pthread_create)
 struct s_args1{
 	syst_zpz* s;
-	int* sol;	// Tableau de taille s->n
+	long int* sol;	// Tableau de taille s->n
 	mpz_t* sol_m;	// Tableau de taille s->n
 };
 typedef struct s_args1 zpz_thrd_args;

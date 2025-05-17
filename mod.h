@@ -9,23 +9,23 @@
 struct s_syst_zpz{
 	int n;	// Nombre de lignes
 	int m;	// Nombre de colonnes (m = n+1 en pratique)
-	int p;	// Nombre premier
-	int* t;	// Tableau contenant les coefficients
+	long int p;	// Nombre premier
+	long int* t;	// Tableau contenant les coefficients
 };
 typedef struct s_syst_zpz syst_zpz;
 
-void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,int p);
+void init_copie_syst_zpz(syst_zpz* sdest,systeme* ssrc,long int p);
 void detruit_syst_zpz(syst_zpz* s);
-int lit_coeff_zpz(syst_zpz* s,int i,int j);
-void ecrit_coeff_zpz(syst_zpz* s,int i,int j,int n);
+long int lit_coeff_zpz(syst_zpz* s,int i,int j);
+void ecrit_coeff_zpz(syst_zpz* s,int i,int j,long int n);
 void affiche_syst_zpz(syst_zpz* s,FILE* f);
-bool verif_sol_zpz(syst_zpz* s,int* sol);
+bool verif_sol_zpz(syst_zpz* s,long int* sol);
 
 //void zpz_gauss(syst_zpz* s);
-//void zpz_sol_syst_ech(syst_zpz* s,int* sol);
-void zpz_resol(syst_zpz* s,int* sol);
+//void zpz_sol_syst_ech(long int* sol,syst_zpz* s);
+void zpz_resol(syst_zpz* s,long int* sol);
 
-int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b);
+long int genere_p(mpz_t p,gmp_randstate_t state,mp_bitcnt_t b);
 
 void chinois_interne(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u);
 //void chinois(mpz_t res,mpz_t x1,mpz_t x2,mpz_t n1,mpz_t n2,mpz_t u);
