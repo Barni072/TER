@@ -1,0 +1,293 @@
+\documentclass[11pt]{beamer}
+\usetheme{Madrid}
+\usefonttheme{serif}
+
+\usepackage{tikz-cd}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\usepackage{graphicx}
+\usepackage[]{algorithm2e}
+
+\setbeamertemplate{caption}[numbered]
+
+\author{Barnabé Chabaux}
+\title{Soutenance de TER}
+\setbeamertemplate{navigation symbols}{}
+\logo{\includegraphics[scale=0.08]{IF.jpg}}
+\date{Implémentation en C/C++ de la résolution de systèmes linéaires à coefficients entiers}
+
+\begin{document}
+	\begin{frame}
+		\titlepage
+		\tableofcontents
+	\end{frame}
+	
+	\section{Introduction}
+	\begin{frame}{Introduction}
+		Notations :
+		\begin{itemize}
+			\item $n$ : taille du système
+			\item $c$ : taille (nombre de bits) des coefficients initiaux
+			\item $L_i$ : $i$-ième ligne du 
+			\item $C_j$ : $j$-ième colonne du système
+			\item $a_{i,j}$ : coefficient de la $i$-ième ligne et de la $j$-ième colonne
+			\item $b_i$ : coefficient de la $i$-ième ligne du second membre
+		\end{itemize}
+		Un système :
+		$$\left \{
+		\begin{array}{ccccccccccc}
+			a_{1,1} x_1 &+ &\cdots &+ &a_{1,j} x_j &+ &\cdots &+ &a_{1,n} x_n &= & b_1\\
+			\vdots & & & & \vdots & & & & \vdots & & \vdots\\
+			a_{i,1} x_1 &+ &\cdots &+ &a_{i,j} x_j &+ &\cdots &+ &a_{i,n} x_n &= & b_i\\
+			\vdots & & & & \vdots & & & & \vdots & & \vdots\\
+			a_{n,1} x_1 &+ &\cdots &+ &a_{n,j} x_j &+ &\cdots &+ &a_{n,n} x_n &= & b_n
+		\end{array}
+		\right.
+		$$
+	\end{frame}
+	
+	\begin{frame}
+		Un système peut aussi être représenté sous cette forme matricielle :
+		\newline
+		\begin{equation*}
+			\begin{pmatrix}
+				a_{1,1} & a_{1,2} & \cdots & a_{1,j} & \cdots & a_{1,n}&&b_1\\
+				a_{2,1} & a_{2,2} & \cdots & a_{2,j} & \cdots & a_{2,n}&&b_2\\
+				\vdots  & \vdots  & & \vdots & & \vdots&&\vdots\\
+				a_{i,1} & a_{i,2} & \cdots & a_{i,j} & \cdots & a_{i,n}&&b_i\\
+				\vdots  & \vdots  &  & \vdots & &\vdots&&\vdots\\
+				a_{n,1} & a_{n,2} & \cdots & a_{n,j} & \cdots & a_{n,n}&&b_n
+			\end{pmatrix}
+		\end{equation*}
+	\end{frame}
+	
+	\section{Pivot de Gauss}
+	\begin{frame}{Pivot de Gauss}
+		Pour $k$ allant de 1 à $n-1$ et $i$ allant de $k+1$ à $n$, on effectue l'opération suivante sur les lignes du système :
+		\newline
+		$$L_i \gets L_i - \frac{a_{i,k}}{a_{k,k}} L_k$$
+		% Attention au cas où un pivot serait nul...
+		\newline
+		On obtient un système échelonné, c'est-à-dire un système dont la matrice est triangulaire supérieure.
+		\vspace{0.5cm}
+		\begin{equation*}
+			\begin{pmatrix}
+				17 & 2 & -3 & & 9\\
+				4 & 7 & -8 & & -5\\
+				1 & 0 & 5 & & 4
+			\end{pmatrix}
+			\longrightarrow
+			\begin{pmatrix}
+				17 & 2 & -3 & & 9\\
+				0 & \frac{111}{17} & \frac{124}{17} & & \frac{-121}{17}\\
+				0 & 0 & \frac{560}{111} & & \frac{371}{111}
+			\end{pmatrix}
+		\end{equation*}
+		% Avec des ratiionnels, les coefficients deviennent trop grands et ce n'est pas gérable
+	\end{frame}
+	
+	\section{Algorithme de Bareiss}
+	\begin{frame}{Algorithme de Bareiss}
+		Variante du pivot de Gauss, avec l'opération suivante sur les lignes du système (En posant $a_{0,0} = 1$) :
+		$$L_i \gets \frac{a_{k,k} L_i - a_{i,k} L_k}{a_{k-1,k-1}}$$
+		\vspace{0.8cm}
+		\begin{equation*}
+			\begin{pmatrix}
+				17 & 2 & -3 & & 9\\
+				4 & 7 & -8 & & -5\\
+				1 & 0 & 5 & & 4
+			\end{pmatrix}
+			\longrightarrow
+			\begin{pmatrix}
+				17 & 2 & -3 & & 9\\
+				0 & 111 & -124 & & -121\\
+				0 & 0 & 560 & & 371
+			\end{pmatrix}
+		\end{equation*}
+	\end{frame}
+	
+	\begin{frame}{Bareiss : coefficients entiers}
+		À chaque utilisation de "l'opération", le déterminant du système est multiplié par $\frac{a_{k,k}}{a_{k-1,k-1}}$.
+		\newline
+		On a donc :
+		$$\mbox{det}_{fin} = \frac{a_{1,1}^{n-1}}{a_{0,0}^{n-1}} \times \frac{a_{2,2}^{n-2}}{a_{1,1}^{n-2}} \times \frac{a_{3,3}^{n-3}}{a_{2,2}^{n-3}} \times \hdots \times \frac{a_{n-2,n-2}^2}{a_{n-3,n-3}^2} \times \frac{a_{n-1,n-1}}{a_{n-2,n-2}} \times \mbox{det}_{d\acute{e}but}$$
+		$$\mbox{det}_{fin} = a_{1,1} \times a_{2,2} \times \hdots \times a_{n-1,n-1} \times \mbox{det}_{d\acute{e}but}$$
+		D'autre part, comme la matrice en fin d'exécution est triangulaire supérieure :
+		$$\mbox{det}_{fin} = a_{1,1} \times a_{2,2} \times \hdots \times a_{n-1,n-1} \times a_{n,n}$$
+		Donc finalement : $\mbox{det}_{d\acute{e}but} = a_{n,n}$
+		% Pour les autres coefficients, on applique ce raisonnement à une sous-matrice du système
+		% Donc les coefficients sont des déterminants de sous-matrices (à coeffs entiers), donc sont entiers
+	\end{frame}
+	
+	\begin{frame}{Bareiss : complexité}
+		Borne de Hadamard :
+		$$ \lvert \mbox{det}(A) \rvert \le \lVert C_1 \rVert_2 \times \hdots \times \lVert C_n \rVert_2$$
+		\newline \newline
+		\begin{itemize}
+			\item Taille de $\lVert C_j \rVert_2 = \sqrt{a_{1,j}^2 + \hdots + a_{n,j}^2}$ : $O(c\mbox{ ln}(n))$
+			\item Taille des coefficients : $O(cn\mbox{ ln}(n))$
+			\item Coût des multiplications : $O(c^2n^2\mbox{ ln}(n)^2)$ (multiplication naïve) ou $O(cn\mbox{ ln}(n)^2)$ (FFT, à des $\mbox{ln}(\mbox{ln}(n))$ près)
+			\item Coût total : $O(c^2 n^5 \mbox{ ln}(n)^2)$ (multiplications naïves) ou $O(c n^4 \mbox{ ln}(n)^2)$ (multiplications avec FFT)
+		\end{itemize}
+	\end{frame}
+	
+	\section{Méthode modulaire}
+	\begin{frame}{Méthode modulaire}
+		On va résoudre le système dans $\mathbb{Z}/p\mathbb{Z}$ pour diverses valeurs de $p$ (nombre premier de taille "raisonnable") (à l'aide du pivot de Gauss), et en déduire la solution rationnelle du système.
+		\newline
+		\newline
+		Dans $\mathbb{Z}/p\mathbb{Z}$, les tailles des coefficients sont bornées, et le pivot de Gauss a donc un coût en $O(n^3)$.
+		% Problèmes : Quand s'arrêter ? Comment "déduire" la solution ?
+	\end{frame}
+	
+	\begin{frame}{Méthode modulaire : restes chinois}
+		On cherche $x \in \mathbb{Z}/n_1n_2\mathbb{Z}$ tel que :
+		\begin{equation*}
+			\begin{cases}
+				x \equiv x_1 \pmod {n_1}\\
+				x \equiv x_2 \pmod {n_2}
+			\end{cases}
+		\end{equation*}
+		Relation de Bézout minimale :
+		\begin{equation*}
+			\begin{cases}
+				n_1 u + n_2 v = 1\\
+				\lvert u \rvert \leq \frac{\lvert n_2 \rvert}{2}\\
+				\lvert v \rvert  \leq \frac{\lvert n_1 \rvert}{2}
+			\end{cases}
+		\end{equation*}
+		Méthode naïve : $x = x_1 v n_2 + x_2 u n_1$
+		% Pas bon si $n_1$ est grand
+		\newline
+		Meilleure méthode : $x = x_1 + ((x_2 - x_1) u \pmod{n_2}) n_1$
+	\end{frame}
+	
+	\begin{frame}{Méthode modulaire : reconstruction rationnelle}
+		% Cette diapo est éclatée
+		À partir d'un $b \in \mathbb{Z}/a\mathbb{Z}$, on cherche à obtenir un rationnel $\frac{num}{den}$, avec $num \in \mathbb{Z}$ et $den \in \mathbb{N}^*$ premiers entre eux, tel que :
+		\begin{equation*}
+			\begin{cases}
+				num \  den^{-1} \equiv b \pmod a\\
+				\lvert num \rvert < \frac{\sqrt{a}}{2}\\
+				0 < den < \frac{\sqrt{a}}{2}\\
+				den \wedge a = 1
+			\end{cases}
+		\end{equation*}
+		Si une telle solution existe, on la trouve en utilisant une variante de l'algorithme d'Euclide étendu, où l'on s'arrête dès qu'on obtient un reste strictement inférieur à $\sqrt{a}$.
+		% La solution est \frac{r_k}{v_k}
+	\end{frame}
+	
+	\begin{frame}{Méthode modulaire : premier algorithme}
+		\begin{itemize}
+			\item Choisir un nombre premier $p$ de taille "raisonnable"
+			\item Résoudre le système dans $\mathbb{Z}/p\mathbb{Z}$ (pivot de Gauss)
+			\item Par les restes chinois et avec l'étape précédente, en déduire la solution du système dans $\mathbb{Z}/prod\mathbb{Z}$ (où $prod$ est le produit des nombres premiers utilisés depuis le début de l'algorithme)
+			\item Effectuer une reconstruction rationnelle. Tant qu'on n'obtient pas le même résultat qu'à l'itération précédente, on recommence ces quatre étapes
+		\end{itemize}
+		% Il est techinquement nécessaire de "vérifier" la solution à la fin
+		% La résolution rationnelle est trop coûteuse pour être effectuée à chaque étape, il faut trouver un autre moyen de s'arrêter
+		% Complexité totale $O(c^3n^6 \mbox{ ln}(n)^3)$ (à cause des $O(cn ln(n))$ reconstructions rationnelles)
+	\end{frame}
+	
+	\begin{frame}{Méthode modulaire : deuxième algorithme}
+		Borne de Hadamard (avec second membre $b$) :
+		$$ hada = \lVert C_1 \rVert_2 \times \hdots \times \lVert C_n \rVert_2 \times \lVert b \rVert_2$$
+		Les coefficients étant obtenus par reconstruction rationnelle dans $\mathbb{Z}/prod\mathbb{Z}$, on a besoin d'avoir $\frac{\sqrt{prod}}{2} \geq hada $.
+		% Expliquer que ceci vient des conditions sur le reconstruction rationnelle
+		Dès que c'est le cas, il n'est plus nécessaire de faire des résolutions modulaires, et on peut effectuer une (seule) reconstruction rationnelle pour obtenir la solution du système.
+		% Il n'est donc plus nécessaire de "vérifier" la solution obtenue
+		\newline
+		Il est nécessaire d'effectuer $O(c^2n^2 \mbox{ ln}(n)^2)$ itérations. 
+		% La complexité (hors reconstruction rationelle) est donc en $O(cn^4 \mbox{ ln}(n)^2)$
+		\newline
+		La reconstruction rationnelle coûte $O(c^4n^5 \mbox{ ln}(n)^4)$.
+		%$O(c^2n^2 \mbox{ ln}(n)^2)$ , $n$ fois
+	\end{frame}
+	
+	\begin{frame}{Méthode modulaire : règle de Cramer}
+		Notons $A_j$ la matrice du système (elle-même notée $A$) dont la $j$-ième colonne a été remplacée par le second membre $b$ :
+		\begin{equation*}
+			A_j = 
+			\begin{pmatrix}
+				a_{1,1} & a_{1,2} & \cdots & a_{1,j-1} & b_1 & a_{1,j+1} & \cdots & a_{1,n}\\
+				a_{2,1} & a_{2,2} & \cdots & a_{2,j-1} & b_2 & a_{2,j+1} & \cdots & a_{2,n}\\
+				\vdots  & \vdots  & & \vdots & \vdots & \vdots & & \vdots\\
+				a_{i,1} & a_{i,2} & \cdots & a_{i,j-1} & b_i & a_{i,j+1} & \cdots & a_{i,n}\\
+				\vdots  & \vdots  & & \vdots & \vdots & \vdots & & \vdots\\
+				a_{n,1} & a_{n,2} & \cdots & a_{n,j-1} & b_n & a_{n,j+1} &\cdots & a_{n,n}
+			\end{pmatrix}
+			\in M_n(\mathbb{Z})
+		\end{equation*}
+		\newline
+		On a alors : $ \forall j \in \llbracket1,n\rrbracket, x_j = \frac{\mbox{det}(A_j)}{\mbox{det}(A)}$
+	\end{frame}
+	
+	\begin{frame}{Méthode modulaire : troisième algorithme}
+		Tant que $\frac{prod}{2} < hada$ :
+		% Le /2 vient de la représentation symétrique de Z/pZ
+		\begin{itemize}
+			\item Choisir un nombre premier $p$
+			\item Échelonner/résoudre le système dans $\mathbb{Z}/p\mathbb{Z}$, et en déduire les déterminants de $A$ et des $A_j$ avec la formule de Cramer
+			\item Par les restes chinois et avec l'étape précédente, en déduire les déterminants de $A$ et des $A_j$ dans $\mathbb{Z}/prod\mathbb{Z}$
+		\end{itemize}
+		Par la formule de Cramer, en déduire la solution du système
+		% $prod$ est assez grand pour que le quotient \frac{det(A_j) mod prod}{det(A) mod prod} soit la solution du système
+		% Cet algo ne fonctionne pas dans mon implémentation...
+		% Complexité en $O(cn^4 \mbox{ ln}(n)^2)$
+	\end{frame}
+	
+	\section{Mesures de temps de calcul, outils utilisés, et conclusion}
+	\begin{frame}{Mesures de temps de calcul, outils utilisés, et conclusion}
+		
+		% Saut de ligne nécessaire (!?)
+		{\footnotesize
+		\begin{tabular}{|c||c|c|c|c|}
+			\hline
+			$\downarrow$ Taille ; Algorithme $\rightarrow$ & Gauss & Bareiss & Modulaire 1 & Modulaire 2\\
+			\hline
+			\hline
+			$n$ = 5, $c$ = 96 & 0,000233 & 0,000093 & 0,00233 (35) & 0,000362 (42)\\
+			\hline
+			$n$ = 5, $c$ = 512 & 0,00144 & 0,000382 & 0,0957 (180) & 0,00293 (216)\\
+			\hline
+			$n$ = 5, $c$ = 2048 & 0,00736 & 0,00265 & 3,48 (719) & 0,0261 (860)\\
+			\hline
+			\hline
+			$n$ = 50, $c$ = 12 & 0,0844 & 0,00934 & 0,0439 (45) & 0,00896 (47)\\
+			\hline
+			$n$ = 50, $c$ = 96 & 1,03 & 0,124 & 4,50 (337) & 0,103 (347)\\
+			\hline
+			$n$ = 50, $c$ = 512 & 12,4 & 1,72 & 493 (1796) & 1,35 (1829)\\
+			\hline
+			$n$ = 50, $c$ = 2048 & 102 & 13,4 &  $\times$& 18,3 (7321)\\
+			\hline
+			\hline
+			$n$ = 200, $c$ = 12 & 26,1 & 1,36 & 5,28 (188) &  1,47 (199)\\
+			\hline
+			$n$ = 200, $c$ = 96 & 444 & 30,9 & 900 (1361) & 12,2 (1379)\\
+			\hline
+			$n$ = 200, $c$ = 512 & $\times$ & 388 & $\times$ & 117 (7729)\\
+			\hline
+			\hline
+			$n$ = 700, $c$ = 12 & $\times$ & 298 & 644 (698) & 207 (734)\\
+			\hline
+		\end{tabular}
+		}
+		% Parler de la méthode en parallèle (qui n'est pas dans ce tableau), et de mes mesures douteuses
+		\vspace{0.7cm}
+		\newline
+		Outils utilisés :
+		\begin{itemize}
+			\item Nombres entiers de la bibliothèque GNU MP
+			\item Implémentation maison des nombres rationnels
+			\item Représentation et génération aléatoire des systèmes linéaires
+		\end{itemize}
+		% Dire qu'il existe une méthode p-adique, non implémentée ici
+	\end{frame}
+	
+\end{document}
