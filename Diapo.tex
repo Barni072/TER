@@ -33,7 +33,7 @@
 		\begin{itemize}
 			\item $n$ : taille du système
 			\item $c$ : taille (nombre de bits) des coefficients initiaux
-			\item $L_i$ : $i$-ième ligne du 
+			\item $L_i$ : $i$-ième ligne du système
 			\item $C_j$ : $j$-ième colonne du système
 			\item $a_{i,j}$ : coefficient de la $i$-ième ligne et de la $j$-ième colonne
 			\item $b_i$ : coefficient de la $i$-ième ligne du second membre
@@ -202,10 +202,10 @@
 		Dès que c'est le cas, il n'est plus nécessaire de faire des résolutions modulaires, et on peut effectuer une (seule) reconstruction rationnelle pour obtenir la solution du système.
 		% Il n'est donc plus nécessaire de "vérifier" la solution obtenue
 		\newline
-		Il est nécessaire d'effectuer $O(c^2n^2 \mbox{ ln}(n)^2)$ itérations. 
+		Il est nécessaire d'effectuer $O(cn \mbox{ ln}(n))$ itérations. 
 		% La complexité (hors reconstruction rationelle) est donc en $O(cn^4 \mbox{ ln}(n)^2)$
 		\newline
-		La reconstruction rationnelle coûte $O(c^4n^5 \mbox{ ln}(n)^4)$.
+		La reconstruction rationnelle coûte $O(c^2n^3 \mbox{ ln}(n)^2)$.
 		%$O(c^2n^2 \mbox{ ln}(n)^2)$ , $n$ fois
 	\end{frame}
 	
